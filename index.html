@@ -71,9 +71,12 @@
   /* rubric */
   .sec{margin:1.1rem 0 .5rem}
   .sec h3{margin:0;font-size:.95rem;color:var(--accent)}
+  .sec.neg h3{color:#dc2626}
   .sec .seckey{font-size:.75rem;color:var(--muted);margin-top:.15rem}
   .item{border:1px solid var(--border);border-radius:10px;padding:.7rem .8rem;margin:0 0 .6rem;background:#fff}
   .item.unset{border-color:#fca5a5;background:#fff5f5}
+  .item.neg{border-color:#fecaca;background:#fef2f2}
+  .item.neg .inum{background:#dc2626}
   .ihead{display:flex;gap:.5rem;align-items:baseline}
   .inum{flex:none;width:1.4rem;height:1.4rem;border-radius:999px;background:var(--accent);color:#fff;font-size:.78rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
   .itext{font-weight:600;font-size:.9rem}
@@ -182,7 +185,13 @@ const paras=t=>keyTerms(esc(t)).trim().split(/\n\s*\n/).filter(Boolean).map(p=>"
 const state={portfolio:null};   // parsed portfolio-generator data (with image dataUrls)
 
 // ===== Rubric definition (single source of truth) ====================
+// Order: Performance Review (10-12) leads so it sits next to the portfolio
+// content, then Productive (1-7), then Counterproductive (8-9). Item numbers
+// keep their canonical identity from the rubric.
 const ITEMS=[
+  {n:10,cat:"perf",text:"Appropriate progress toward project completion",desc:["Makes up work (when absent or tardy) as decided with your mentor","Growth mindset / learning from mistakes","Measurable progress toward goals"]},
+  {n:11,cat:"perf",text:"Professional communication with teachers, staff, and students",desc:["Communicates about absences and tardies","Speaks respectfully with others","Advocates for self","Asks for timely guidance from mentor","Reads and responds to DPEngineering emails"]},
+  {n:12,cat:"perf",text:"Generates portfolio content on a weekly basis",desc:["Content — two or more (successes/failures, modifications/iterations, collaborations, questions/concerns, next steps)","Visuals — one or more (component images, action images, code/CAM/CAD screenshots)","56 DELTAs — two or more skills, each with a bulleted description"]},
   {n:1,cat:"prod",text:"Maintains focus and productivity for the duration of the class period",desc:["Starts quickly after attendance","Continues to work until clean-up time","Arrives on time","Leaves when the bell rings"]},
   {n:2,cat:"prod",text:"Strives to produce high-quality work product",desc:["Applies the iterative process","Uses appropriate machining techniques","Uses appropriate SolidWorks techniques","Writes software using appropriate standards"]},
   {n:3,cat:"prod",text:"Is resourceful and proactive, including when encountering difficulties or setbacks",desc:["Works on another part of the project","Seeks mentor advice","Asks for support when necessary","Does research","Demonstrates curiosity"]},
@@ -191,16 +200,13 @@ const ITEMS=[
   {n:6,cat:"prod",text:"Keeps a clean work area and stores files appropriately",desc:["Daily clean-up of machines","Daily clean-up of work area","Daily proper storage of files"]},
   {n:7,cat:"prod",text:"Successfully executes the weekly maintenance task",desc:["Utilizes all of the clean-up time","Received mentor sign-off for completed task","Submit before and after photo"]},
   {n:8,cat:"counter",text:"Wanders around the facility and/or distracts others",desc:[]},
-  {n:9,cat:"counter",text:"Engages in unnecessary web/social media or phone/texting",desc:["Adheres to district/campus guidelines"]},
-  {n:10,cat:"perf",text:"Appropriate progress toward project completion",desc:["Makes up work (when absent or tardy) as decided with your mentor","Growth mindset / learning from mistakes","Measurable progress toward goals"]},
-  {n:11,cat:"perf",text:"Professional communication with teachers, staff, and students",desc:["Communicates about absences and tardies","Speaks respectfully with others","Advocates for self","Asks for timely guidance from mentor","Reads and responds to DPEngineering emails"]},
-  {n:12,cat:"perf",text:"Generates portfolio content on a weekly basis",desc:["Content — two or more (successes/failures, modifications/iterations, collaborations, questions/concerns, next steps)","Visuals — one or more (component images, action images, code/CAM/CAD screenshots)","56 DELTAs — two or more skills, each with a bulleted description"]}
+  {n:9,cat:"counter",text:"Engages in unnecessary web/social media or phone/texting",desc:["Adheres to district/campus guidelines"]}
 ];
 const POINTS={prod:{a:3,m:2,s:1,n:0},counter:{a:0,m:1,s:2,n:3},perf:{a:3,m:2,s:1,n:0}};
 const SECTIONS=[
+  {at:10,title:"Performance Review",key:"a = absolutely · m = mostly · s = somewhat · n = not at all"},
   {at:1,title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
-  {at:8,title:"Counterproductive Behavior",key:"Reversed — “never” is best"},
-  {at:10,title:"Performance Review",key:"a = absolutely · m = mostly · s = somewhat · n = not at all"}
+  {at:8,title:"Counterproductive Behavior",key:"Reversed — “never” is best · counts against the score",neg:true}
 ];
 const CODE_LABELS={std:{a:"Always",m:"Mostly",s:"Sometimes",n:"Never"},perf:{a:"Absolutely",m:"Mostly",s:"Somewhat",n:"Not at all"}};
 function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
@@ -237,7 +243,7 @@ function segHTML(name,selected,cat,disabled){
 }
 function sectionHeadHTML(n){
   var s=SECTIONS.find(function(x){return x.at===n;});
-  return s?'<div class="sec"><h3>'+s.title+'</h3><div class="seckey">'+s.key+'</div></div>':"";
+  return s?'<div class="sec'+(s.neg?" neg":"")+'"><h3>'+s.title+'</h3><div class="seckey">'+s.key+'</div></div>':"";
 }
 function descHTML(it){
   return it.desc.length?'<ul class="desc">'+it.desc.map(function(d){return "<li>"+d+"</li>";}).join("")+"</ul>":"";
@@ -247,7 +253,7 @@ function descHTML(it){
 (function renderForm(){
   $("rubric").innerHTML=ITEMS.map(function(it){
     return sectionHeadHTML(it.n)+
-      '<div class="item" data-n="'+it.n+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
+      '<div class="item'+(it.cat==="counter"?" neg":"")+'" data-n="'+it.n+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
       '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+segHTML("s_"+it.n,null,it.cat,false)+'</div>';
   }).join("");
   $("deltaSuggestions").innerHTML=DELTA_SUGGESTIONS.map(function(s){return '<option value="'+esc(s)+'">';}).join("");
@@ -389,8 +395,11 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .note{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:8px;padding:.55rem .7rem;font-size:.82rem;margin-bottom:1rem}
 .sec{margin:1.4rem 0 .55rem}
 .sec h3{margin:0;font-size:1rem;color:#4f46e5}
+.sec.neg h3{color:#dc2626}
 .sec .seckey{font-size:.76rem;color:#64748b;margin-top:.15rem}
 .item{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.75rem .85rem;margin:0 0 .6rem}
+.item.neg{border-color:#fecaca;background:#fef2f2}
+.item.neg .inum{background:#dc2626}
 .ihead{display:flex;gap:.5rem;align-items:baseline}
 .inum{flex:none;width:1.5rem;height:1.5rem;border-radius:999px;background:#4f46e5;color:#fff;font-size:.8rem;font-weight:700;display:inline-flex;align-items:center;justify-content:center}
 .itext{font-weight:600}
@@ -456,7 +465,7 @@ function artifactRowsHTML(codes){
     var c=codes[it.n];
     var selfLabel=c?labelSet(it.cat)[c]:"— (not rated)";
     return sectionHeadHTML(it.n)+
-      '<div class="item"><div class="ihead"><span class="inum">'+it.n+'</span>'+
+      '<div class="item'+(it.cat==="counter"?" neg":"")+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
       '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+
       '<div class="selfline">Student self-rating: <strong>'+selfLabel+'</strong></div>'+
       '<div class="gradelabel">Mentor rating</div>'+
