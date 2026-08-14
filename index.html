@@ -42,6 +42,7 @@
   .toolbar{background:#f1f5f9;padding:.5rem 0 .75rem;display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem;border-bottom:1px solid var(--border)}
   .savednote{font-size:.78rem;color:var(--ok)}
   .help{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:.6rem .75rem;font-size:.82rem;color:#3730a3;margin-bottom:1rem}
+  .help a{color:#4338ca;font-weight:600}
   .gate{border:1px solid var(--border);border-radius:8px;padding:.6rem .75rem;margin-bottom:1rem;background:#fff;font-size:.84rem}
   .gate .ghead{font-weight:700;margin-bottom:.4rem}
   .req{display:flex;align-items:center;gap:.45rem;padding:.15rem 0}
@@ -53,6 +54,20 @@
   .selfscore .num{font-size:1.5rem;font-weight:800;color:var(--accent);line-height:1}
   .selfscore .of{color:var(--muted);font-weight:600;font-size:.85rem}
   .selfscore .cats{margin-left:auto;font-size:.76rem;color:var(--muted);text-align:right}
+  /* portfolio attach */
+  .drop{border:2px dashed var(--border);border-radius:10px;padding:1.1rem;text-align:center;color:var(--muted);font-size:.85rem;cursor:pointer;background:var(--panel)}
+  .drop.over{border-color:var(--accent);background:#eef2ff;color:var(--accent)}
+  .attached{display:flex;align-items:flex-start;gap:.5rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:.55rem .7rem;margin-top:.6rem;font-size:.82rem;color:#166534}
+  .attached .rm{margin-left:auto;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:.2rem .5rem;font-size:.72rem;flex:none}
+  .attached .meta{font-weight:400}
+  .openlink{display:inline-block;margin-top:.6rem;font-size:.8rem;color:var(--accent);font-weight:600;text-decoration:none}
+  .openlink:hover{text-decoration:underline}
+  /* DELTAs */
+  .delta{border:1px solid var(--border);border-radius:8px;padding:.6rem .7rem;margin:0 0 .6rem;background:#fff}
+  .delta .drow{display:flex;gap:.5rem;align-items:center}
+  .delta input.dskill{flex:1;font-weight:600}
+  .delta .rm{flex:none;background:#fff;color:#b91c1c;border:1px solid #fecaca;border-radius:6px;padding:.35rem .55rem;font-size:.75rem}
+  .delta textarea{margin-top:.45rem;min-height:56px}
   /* rubric */
   .sec{margin:1.1rem 0 .5rem}
   .sec h3{margin:0;font-size:.95rem;color:var(--accent)}
@@ -79,9 +94,9 @@
   <div class="app-head">
     <div>
       <h1>📋 Weekly Performance Review</h1>
-      <p>Rate your week against the rubric, then download a page to submit on Canvas. Your mentor grades that same page in SpeedGrader.</p>
+      <p>Attach your portfolio post, rate your week, then download one page to submit on Canvas. Your mentor grades it in SpeedGrader.</p>
     </div>
-    <a class="switch-link" href="https://dpengineering.github.io/portfolio-generator/">Portfolio Generator →</a>
+    <a class="switch-link" href="https://dpengineering.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator →</a>
   </div>
 </header>
 
@@ -99,9 +114,10 @@
     <div class="gate" id="gate"></div>
 
     <div class="help">
-      <strong>How this works:</strong> Rate all 12 items honestly, then click <em>Download for Canvas</em> and
-      submit the file to this week's assignment. Your rating is a <em>self-assessment mirror</em> — your mentor's
-      grade in SpeedGrader is the official one.
+      <strong>How this works:</strong> ① Make this week's post in the
+      <a href="https://dpengineering.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator</a> and download it.
+      ② Attach it below, add your DELTAs, and rate all 12 items. ③ Click <em>Download for Canvas</em> and submit the file.
+      Your ratings are a <em>self-assessment mirror</em> — your mentor's grade in SpeedGrader is the official one.
     </div>
 
     <div class="selfscore">
@@ -120,6 +136,22 @@
         <div><label>Mentor <span class="hint">(optional)</span><input type="text" id="mentor" placeholder="Mentor name"></label></div>
       </div>
       <label>Project <span class="hint">(optional)</span><input type="text" id="project" placeholder="Project name"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Portfolio Post</legend>
+      <p class="hint" style="margin:0 0 .6rem">Make your weekly post in the Portfolio Generator, download it, then attach the <strong>.html</strong> file here. Its content is embedded into your submission.</p>
+      <div class="drop" id="portDrop">Drag your portfolio post here, or click to choose</div>
+      <div id="portSummary"></div>
+      <a class="openlink" href="https://dpengineering.github.io/portfolio-generator/" target="_blank" rel="noopener">Open Portfolio Generator →</a>
+    </fieldset>
+
+    <fieldset>
+      <legend>56 DELTAs — Skills <span class="hint">(at least 2)</span></legend>
+      <p class="hint" style="margin:0 0 .6rem">Name a DELTA skill you demonstrated this week and describe how, in a sentence or two.</p>
+      <div id="deltas"></div>
+      <button class="btn alt" id="addDelta" type="button">+ Add skill</button>
+      <datalist id="deltaSuggestions"></datalist>
     </fieldset>
 
     <fieldset>
@@ -143,10 +175,13 @@
 const $=id=>document.getElementById(id);
 const val=id=>($(id).value||"").trim();
 const esc=s=>(s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+// *word* becomes a highlighted key term (matches the portfolio-generator rule).
+const keyTerms=h=>h.replace(/\*(\S(?:[^*\n]*\S)?)\*/g,'<span class="key">$1</span>');
+const paras=t=>keyTerms(esc(t)).trim().split(/\n\s*\n/).filter(Boolean).map(p=>"<p>"+p.replace(/\n/g,"<br>")+"</p>").join("\n");
+
+const state={portfolio:null};   // parsed portfolio-generator data (with image dataUrls)
 
 // ===== Rubric definition (single source of truth) ====================
-// cat: 'prod' (Productive 1-7), 'counter' (Counterproductive 8-9, reversed),
-// 'perf' (Performance Review 10-12).
 const ITEMS=[
   {n:1,cat:"prod",text:"Maintains focus and productivity for the duration of the class period",desc:["Starts quickly after attendance","Continues to work until clean-up time","Arrives on time","Leaves when the bell rings"]},
   {n:2,cat:"prod",text:"Strives to produce high-quality work product",desc:["Applies the iterative process","Uses appropriate machining techniques","Uses appropriate SolidWorks techniques","Writes software using appropriate standards"]},
@@ -161,7 +196,6 @@ const ITEMS=[
   {n:11,cat:"perf",text:"Professional communication with teachers, staff, and students",desc:["Communicates about absences and tardies","Speaks respectfully with others","Advocates for self","Asks for timely guidance from mentor","Reads and responds to DPEngineering emails"]},
   {n:12,cat:"perf",text:"Generates portfolio content on a weekly basis",desc:["Content — two or more (successes/failures, modifications/iterations, collaborations, questions/concerns, next steps)","Visuals — one or more (component images, action images, code/CAM/CAD screenshots)","56 DELTAs — two or more skills, each with a bulleted description"]}
 ];
-// Redesigned scoring: equal weight, no negatives. a/m/s/n -> points by category.
 const POINTS={prod:{a:3,m:2,s:1,n:0},counter:{a:0,m:1,s:2,n:3},perf:{a:3,m:2,s:1,n:0}};
 const SECTIONS=[
   {at:1,title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
@@ -170,11 +204,11 @@ const SECTIONS=[
 ];
 const CODE_LABELS={std:{a:"Always",m:"Mostly",s:"Sometimes",n:"Never"},perf:{a:"Absolutely",m:"Mostly",s:"Somewhat",n:"Not at all"}};
 function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
+// DELTA skill suggestions (edit freely; a subset of the DPEngineering 56 DELTAs).
+const DELTA_SUGGESTIONS=["Ability to Learn","Adaptability","Breaking Orthodoxies","Coaching","Collaboration","Computational and Algorithmic Thinking","Creativity and Imagination","Digital Collaboration","Digital Learning","Driving Change and Innovation","Self-development","Self Motivation and Wellness","Storytelling and Public Speaking","Time Management and Prioritization"];
 // =====================================================================
 
 // ---- scoring engine (also embedded verbatim into the artifact) ------
-// Depends only on globals ITEMS and POINTS, so the same source runs in
-// both this app and the exported page (kept drift-free via toString()).
 function computeScore(codes){
   var raw=0,sub={prod:0,counter:0,perf:0},max={prod:0,counter:0,perf:0},answered=0;
   ITEMS.forEach(function(it){
@@ -193,7 +227,7 @@ function formatComment(res){
     "  ·  Performance "+res.sub.perf+"/"+res.max.perf;
 }
 
-// ---- shared HTML builders (used by the form and the artifact) -------
+// ---- shared HTML builders -------------------------------------------
 function segHTML(name,selected,cat,disabled){
   var L=labelSet(cat);
   return '<div class="seg">'+["a","m","s","n"].map(function(c){
@@ -209,26 +243,96 @@ function descHTML(it){
   return it.desc.length?'<ul class="desc">'+it.desc.map(function(d){return "<li>"+d+"</li>";}).join("")+"</ul>":"";
 }
 
-// ---- build the form rubric (student self-rating) --------------------
+// ---- render the form rubric -----------------------------------------
 (function renderForm(){
   $("rubric").innerHTML=ITEMS.map(function(it){
     return sectionHeadHTML(it.n)+
       '<div class="item" data-n="'+it.n+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
       '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+segHTML("s_"+it.n,null,it.cat,false)+'</div>';
   }).join("");
+  $("deltaSuggestions").innerHTML=DELTA_SUGGESTIONS.map(function(s){return '<option value="'+esc(s)+'">';}).join("");
+})();
+
+// ---- DELTAs (skills) -------------------------------------------------
+function addDelta(data){
+  data=data||{};
+  var row=document.createElement("div");
+  row.className="delta";
+  row.innerHTML='<div class="drow"><input type="text" class="dskill" list="deltaSuggestions" placeholder="Skill name (e.g. Collaboration)">'+
+    '<button type="button" class="rm">Remove</button></div>'+
+    '<textarea class="dtext" placeholder="How you demonstrated it this week..."></textarea>';
+  row.querySelector(".dskill").value=data.skill||"";
+  row.querySelector(".dtext").value=data.text||"";
+  row.querySelector(".rm").onclick=function(){row.remove();onEdit();};
+  row.querySelectorAll("input,textarea").forEach(function(el){el.addEventListener("input",onEdit);});
+  $("deltas").appendChild(row);
+}
+function collectDeltas(){
+  return [...document.querySelectorAll("#deltas .delta")].map(function(r){
+    return {skill:r.querySelector(".dskill").value.trim(),text:r.querySelector(".dtext").value.trim()};
+  }).filter(function(d){return d.skill||d.text;});
+}
+$("addDelta").onclick=function(){addDelta();};
+
+// ---- portfolio attach (parse a portfolio-generator post) ------------
+function parsePortfolioHTML(txt){
+  var doc=new DOMParser().parseFromString(txt,"text/html");
+  var el=doc.getElementById("portfolio-data");
+  if(!el)return null;                       // not a portfolio-generator post
+  var data=JSON.parse(el.textContent);
+  var cov=doc.querySelector(".cover img");
+  data.cover=cov?cov.getAttribute("src"):null;
+  var srcs=function(g){return [...doc.querySelectorAll('.gallery[data-group="'+g+'"] figure img')].map(function(i){return i.getAttribute("src");});};
+  var g1=srcs(1),g2=srcs(2);
+  (data.weeks||[]).forEach(function(w){
+    w.images1=(w.images1||[]).map(function(im,i){return {name:im.name,caption:im.caption,dataUrl:g1[i]};});
+    w.images2=(w.images2||[]).map(function(im,i){return {name:im.name,caption:im.caption,dataUrl:g2[i]};});
+  });
+  return data;
+}
+function portfolioStats(p){
+  var moments=0,imgs=0,words=0;
+  (p&&p.weeks||[]).forEach(function(w){
+    if((w.text1||"").trim())moments++;
+    if((w.text2||"").trim())moments++;
+    imgs+=(w.images1||[]).filter(function(i){return i.dataUrl;}).length+(w.images2||[]).filter(function(i){return i.dataUrl;}).length;
+    words+=((w.text1||"")+" "+(w.text2||"")+" "+(p.reflection||"")).split(/\s+/).filter(Boolean).length;
+  });
+  return {moments:moments,imgs:imgs,words:words};
+}
+function renderPortSummary(){
+  var box=$("portSummary");
+  if(!state.portfolio){box.innerHTML="";return;}
+  var p=state.portfolio, st=portfolioStats(p), who=esc((p.meta&&p.meta.student)||"post");
+  box.innerHTML='<div class="attached"><div><strong>Attached ✓</strong> <span class="meta">'+who+
+    ' — '+st.moments+' entr'+(st.moments===1?"y":"ies")+', '+st.imgs+' image'+(st.imgs===1?"":"s")+'</span></div>'+
+    '<button type="button" class="rm" id="rmPort">Remove</button></div>';
+  $("rmPort").onclick=function(){state.portfolio=null;renderPortSummary();onEdit();};
+}
+function attachPortfolio(txt){
+  var data;
+  try{data=/^\s*[{[]/.test(txt)?JSON.parse(txt):parsePortfolioHTML(txt);}catch(e){data=null;}
+  if(!data||!data.weeks){alert("That doesn't look like a Portfolio Generator post. Make your post at the Portfolio Generator, download it, and attach that .html file.");return;}
+  state.portfolio=data;renderPortSummary();onEdit();
+}
+(function wirePortDrop(){
+  var el=$("portDrop");
+  var pick=function(){var i=document.createElement("input");i.type="file";i.accept=".html,.htm,.json";i.onchange=function(){readPort(i.files[0]);};i.click();};
+  var readPort=function(f){if(!f)return;var fr=new FileReader();fr.onload=function(){attachPortfolio(fr.result);};fr.readAsText(f);};
+  el.addEventListener("click",pick);
+  el.addEventListener("dragover",function(e){e.preventDefault();el.classList.add("over");});
+  el.addEventListener("dragleave",function(){el.classList.remove("over");});
+  el.addEventListener("drop",function(e){e.preventDefault();el.classList.remove("over");if(e.dataTransfer.files[0])readPort(e.dataTransfer.files[0]);});
 })();
 
 // ---- collect / restore ----------------------------------------------
 function collect(){
   var codes={};
-  ITEMS.forEach(function(it){
-    var el=document.querySelector('input[name="s_'+it.n+'"]:checked');
-    if(el)codes[it.n]=el.value;
-  });
+  ITEMS.forEach(function(it){var el=document.querySelector('input[name="s_'+it.n+'"]:checked');if(el)codes[it.n]=el.value;});
   return {meta:{first:val("firstName"),last:val("lastName"),
     student:(val("firstName")+" "+val("lastName")).trim(),
     project:val("project"),mentor:val("mentor"),week:$("week").value},
-    codes:codes,notes:val("notes")};
+    codes:codes,notes:val("notes"),deltas:collectDeltas(),portfolio:state.portfolio||null};
 }
 function loadData(d){
   var m=d.meta||{};
@@ -243,6 +347,9 @@ function loadData(d){
     var el=c&&document.querySelector('input[name="s_'+it.n+'"][value="'+c+'"]');
     if(el)el.checked=true;
   });
+  $("deltas").innerHTML="";
+  (d.deltas&&d.deltas.length?d.deltas:[{}]).forEach(addDelta);
+  state.portfolio=d.portfolio||null;renderPortSummary();
   updateAll();
 }
 
@@ -254,6 +361,24 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .ah{margin-bottom:1rem}
 .ah h1{margin:0;font-size:1.3rem}
 .ah p{margin:.25rem 0 0;color:#64748b;font-size:.9rem}
+/* portfolio content (styled like the portfolio-generator post) */
+.portfolio{font-family:Georgia,"Times New Roman",serif;line-height:1.65;margin:0 0 1.5rem}
+.portfolio .pcover img{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:12px;margin-bottom:1.5rem}
+.portfolio section{margin-bottom:2rem}
+.portfolio h2{font-family:system-ui,sans-serif;font-size:1.3rem;color:#111;border-bottom:2px solid #e2e8f0;padding-bottom:.35rem;margin:0 0 .8rem}
+.portfolio p{margin:0 0 1rem}
+.portfolio .key{color:#0043fa;font-weight:600}
+.portfolio .gallery{display:grid;gap:1rem;grid-template-columns:repeat(2,1fr);margin:1.25rem 0}
+.portfolio figure{margin:0}
+.portfolio figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0}
+.portfolio figcaption{font-family:system-ui,sans-serif;font-size:.82rem;color:#64748b;margin-top:.4rem;font-style:italic}
+.deltas{margin:0 0 1.5rem}
+.deltas h2{font-family:system-ui,sans-serif;font-size:1.2rem;color:#111;border-bottom:2px solid #e2e8f0;padding-bottom:.35rem;margin:0 0 .8rem}
+.delta{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem .8rem;margin:0 0 .5rem}
+.delta .dskill{font-weight:700;color:#4f46e5}
+.delta .dtext{margin:.2rem 0 0;color:#334155}
+.divider{border:0;border-top:2px solid #e2e8f0;margin:2rem 0 1.25rem}
+.revhead{font-size:1.15rem;margin:0 0 .25rem}
 .scoreband{display:flex;gap:.75rem;margin:1rem 0 .35rem}
 .sb{flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;text-align:center}
 .sb.primary{border-color:#4f46e5;box-shadow:0 0 0 1px #4f46e5 inset}
@@ -290,8 +415,41 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .cp textarea{resize:vertical;line-height:1.5}
 .cp button{flex:none;border:0;border-radius:8px;padding:.5rem .8rem;font:inherit;font-weight:600;background:#4f46e5;color:#fff;cursor:pointer}
 .progress{font-weight:600;color:#64748b}
-@media (max-width:560px){.scoreband{flex-direction:column}.seg{margin-left:0}.desc,.selfline,.gradelabel{margin-left:0}}
+@media (max-width:560px){.scoreband{flex-direction:column}.portfolio .gallery{grid-template-columns:1fr}.seg{margin-left:0}.desc,.selfline,.gradelabel{margin-left:0}}
 `;
+
+function gallery(images,ctr,group){
+  var figs=images.filter(function(i){return i.dataUrl;}).map(function(i){
+    var num=++ctr.n;
+    var cap=i.caption?("Figure "+num+": "+esc(i.caption)):("Figure "+num);
+    return '<figure><img src="'+i.dataUrl+'" alt="'+esc(i.caption||("Figure "+num))+'"><figcaption>'+cap+'</figcaption></figure>';
+  }).join("");
+  return figs?'<div class="gallery" data-group="'+group+'">'+figs+'</div>':"";
+}
+function renderPortfolio(p){
+  if(!p)return "";
+  var ctr={n:0};
+  var cover=p.cover?'<div class="pcover"><img src="'+p.cover+'" alt="Cover image"></div>':"";
+  var sections=(p.weeks||[]).map(function(w){
+    var imgs1=w.images1||[],imgs2=w.images2||[];
+    var hasImg=imgs1.some(function(x){return x.dataUrl;})||imgs2.some(function(x){return x.dataUrl;});
+    if(!w.title&&!w.text1&&!w.text2&&!hasImg)return "";
+    var h='<section><h2>'+(esc(w.title)||"This Week")+'</h2>';
+    if(w.text1)h+=paras(w.text1);
+    if(imgs1.length)h+=gallery(imgs1,ctr,1);
+    if(w.text2)h+=paras(w.text2);
+    if(imgs2.length)h+=gallery(imgs2,ctr,2);
+    return h+"</section>";
+  }).filter(Boolean).join("");
+  var refl=p.reflection?'<section><h2>Looking Back</h2>'+paras(p.reflection)+'</section>':"";
+  return '<div class="portfolio">'+cover+sections+refl+'</div>';
+}
+function renderDeltas(deltas){
+  var rows=(deltas||[]).filter(function(d){return d.skill||d.text;}).map(function(d){
+    return '<div class="delta"><div class="dskill">'+esc(d.skill||"Skill")+'</div><div class="dtext">'+esc(d.text)+'</div></div>';
+  }).join("");
+  return rows?'<div class="deltas"><h2>56 DELTAs — Skills</h2>'+rows+'</div>':"";
+}
 
 function artifactRowsHTML(codes){
   return ITEMS.map(function(it){
@@ -332,13 +490,15 @@ function mentorRuntime(){
   wrap.addEventListener("change",refresh);
   if(notes)notes.addEventListener("input",refresh);
   document.querySelectorAll("[data-copy]").forEach(function(btn){
+    var orig=btn.textContent;
     btn.addEventListener("click",function(){
       var t=document.getElementById(btn.getAttribute("data-copy"));
       t.focus();if(t.select)t.select();
-      var ok=false;
-      try{if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(t.value);ok=true;}}catch(e){}
-      if(!ok){try{ok=document.execCommand("copy");}catch(e){}}
-      var o=btn.textContent;btn.textContent="Copied ✓";setTimeout(function(){btn.textContent=o;},1200);
+      var flash=function(msg){btn.textContent=msg;setTimeout(function(){btn.textContent=orig;},1600);};
+      var okExec=false;try{okExec=document.execCommand("copy");}catch(e){}
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(t.value).then(function(){flash("Copied ✓");},function(){flash(okExec?"Copied ✓":"Selected — ⌘C");});
+      }else{flash(okExec?"Copied ✓":"Selected — ⌘C");}
     });
   });
   refresh();
@@ -351,23 +511,31 @@ function buildArtifact(d){
   var self=computeScore(d.codes);
   var selfNum=self.answered===self.total?self.overall.toFixed(2):"—";
   var notesBlock=d.notes?'<div class="note"><strong>Student note:</strong> '+esc(d.notes)+'</div>':"";
-  // Slim engine data + functions, embedded verbatim so the page is self-contained.
   var engine="var ITEMS="+JSON.stringify(ITEMS.map(function(i){return {n:i.n,cat:i.cat};}))+";\n"+
     "var POINTS="+JSON.stringify(POINTS)+";\n"+
     computeScore.toString()+"\n"+formatComment.toString()+"\n"+
     "("+mentorRuntime.toString()+")();";
-  var dataJson=JSON.stringify({v:1,meta:d.meta,codes:d.codes,notes:d.notes}).replace(/</g,"\\u003c");
-  var doc="<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"+
+  // Embedded state for re-opening (image dataUrls omitted; recovered from the rendered galleries).
+  var portMeta=d.portfolio?{meta:d.portfolio.meta,reflection:d.portfolio.reflection,
+    weeks:(d.portfolio.weeks||[]).map(function(w){return {title:w.title,text1:w.text1,text2:w.text2,
+      images1:(w.images1||[]).map(function(i){return {name:i.name,caption:i.caption};}),
+      images2:(w.images2||[]).map(function(i){return {name:i.name,caption:i.caption};})};})}:null;
+  var dataJson=JSON.stringify({v:2,meta:d.meta,codes:d.codes,notes:d.notes,deltas:d.deltas,portfolio:portMeta}).replace(/</g,"\\u003c");
+  return "<!doctype html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n"+
     "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"+
-    "<title>"+name+" — Performance Review</title>\n<style>"+ARTIFACT_CSS+"</style>\n</head>\n<body>\n"+
+    "<title>"+name+" — Weekly Submission</title>\n<style>"+ARTIFACT_CSS+"</style>\n</head>\n<body>\n"+
     '<div class="sheet">\n'+
-    '<header class="ah"><h1>Weekly Performance Review</h1><p>'+name+(sub?' · '+sub:"")+'</p></header>\n'+
-    notesBlock+
+    '<header class="ah"><h1>'+name+'</h1><p>'+(sub||"Weekly submission")+'</p></header>\n'+
+    renderPortfolio(d.portfolio)+"\n"+
+    renderDeltas(d.deltas)+"\n"+
+    '<hr class="divider">\n'+
+    '<h2 class="revhead">Weekly Performance Review</h2>\n'+
     '<div class="scoreband">'+
       '<div class="sb self"><div class="sbnum">'+selfNum+'</div><div class="sblab">Student self-score</div></div>'+
       '<div class="sb primary"><div class="sbnum" id="mScore">—</div><div class="sblab">Mentor score <span class="progress" id="progress"></span></div></div>'+
     '</div>\n'+
     '<div class="cats" id="mCats"></div>\n'+
+    notesBlock+
     '<div class="note">⭐ <strong>Mentors:</strong> rate each item below — the score updates live. Then copy the score and comment into SpeedGrader.</div>\n'+
     '<div id="mentor">'+artifactRowsHTML(d.codes)+'</div>\n'+
     '<div class="out">\n<h3>For SpeedGrader</h3>\n<p class="subtle">Rate all 12 items, add any feedback, then copy these in.</p>\n'+
@@ -379,7 +547,6 @@ function buildArtifact(d){
     '<script type="application/json" id="pr-data">'+dataJson+'<\/script>\n'+
     '<script>'+engine+'<\/script>\n'+
     '</body>\n</html>';
-  return doc;
 }
 
 // ---- validation / gate ----------------------------------------------
@@ -389,6 +556,9 @@ function validate(){
   var weekOK=!!d.meta.week;
   var answered=Object.keys(d.codes).length;
   var allOK=answered===ITEMS.length;
+  var portOK=!!(d.portfolio&&(d.portfolio.weeks||[]).length);
+  var deltaN=(d.deltas||[]).filter(function(x){return x.skill&&x.text;}).length;
+  var deltaOK=deltaN>=2;
   ITEMS.forEach(function(it){
     var el=document.querySelector('.item[data-n="'+it.n+'"]');
     if(el)el.classList.toggle("unset",!d.codes[it.n]);
@@ -397,8 +567,10 @@ function validate(){
   $("gate").innerHTML='<div class="ghead">To download, finish these:</div>'+
     row(nameOK,"Enter your first and last name")+
     row(weekOK,"Choose the week")+
+    row(portOK,"Attach your portfolio post")+
+    row(deltaOK,"Add at least 2 DELTA skills with a description ("+deltaN+"/2)")+
     row(allOK,"Rate all 12 rubric items ("+answered+"/"+ITEMS.length+")");
-  var ok=nameOK&&weekOK&&allOK;
+  var ok=nameOK&&weekOK&&portOK&&deltaOK&&allOK;
   $("download").disabled=!ok;
   $("download").title=ok?"":"Finish the requirements above to enable download";
   return ok;
@@ -421,6 +593,8 @@ function updatePreview(){
   $("size").textContent=kb>1024?(kb/1024).toFixed(1)+" MB":kb+" KB";
 }
 function updateAll(){updateSelfScore();validate();updatePreview();}
+// central edit hook (autosave + rescore + revalidate + repreview)
+function onEdit(){autosave();updateSelfScore();validate();schedulePreview();}
 
 // ---- download / draft / load ----------------------------------------
 function downloadBlob(filename,content,type){
@@ -437,8 +611,7 @@ function fileName(){
   var ln=alnum(m.last).slice(0,4);
   var lnCased=ln?ln[0].toUpperCase()+ln.slice(1).toLowerCase():"";
   var who=(fi+lnCased)||"XX";
-  var wk=m.week||"draft";
-  return who+"_PerfReview_"+wk+".html";
+  return who+"_PerfReview_"+(m.week||"draft")+".html";
 }
 function draftSlug(){
   var m=collect().meta;
@@ -450,7 +623,18 @@ $("loadBtn").onclick=function(){$("loadFile").click();};
 function parseArtifact(txt){
   var doc=new DOMParser().parseFromString(txt,"text/html");
   var el=doc.getElementById("pr-data");
-  return el?JSON.parse(el.textContent):null;
+  if(!el)return null;
+  var data=JSON.parse(el.textContent);
+  // recover portfolio image dataUrls from the rendered galleries
+  if(data.portfolio){
+    var srcs=function(g){return [...doc.querySelectorAll('.portfolio .gallery[data-group="'+g+'"] figure img')].map(function(i){return i.getAttribute("src");});};
+    var g1=srcs(1),g2=srcs(2);
+    (data.portfolio.weeks||[]).forEach(function(w){
+      w.images1=(w.images1||[]).map(function(im,i){return {name:im.name,caption:im.caption,dataUrl:g1[i]};});
+      w.images2=(w.images2||[]).map(function(im,i){return {name:im.name,caption:im.caption,dataUrl:g2[i]};});
+    });
+  }
+  return data;
 }
 $("loadFile").onchange=function(e){
   var f=e.target.files[0];if(!f)return;
@@ -473,27 +657,32 @@ $("clear").onclick=function(){
   localStorage.removeItem("perfReviewDraft");
   ["firstName","lastName","project","mentor","week","notes"].forEach(function(id){$(id).value="";});
   document.querySelectorAll('#rubric input[type="radio"]').forEach(function(r){r.checked=false;});
+  state.portfolio=null;renderPortSummary();
+  $("deltas").innerHTML="";addDelta();addDelta();
   setDefaultWeek();
   updateAll();
 };
 
-// ---- autosave -------------------------------------------------------
+// ---- autosave (review fields only; portfolio images stay in memory) -
 let autoTimer=null;
 function autosave(){
   clearTimeout(autoTimer);
   autoTimer=setTimeout(function(){
-    try{localStorage.setItem("perfReviewDraft",JSON.stringify(collect()));
+    try{
+      var c=collect();
+      localStorage.setItem("perfReviewDraft",JSON.stringify({meta:c.meta,codes:c.codes,notes:c.notes,deltas:c.deltas}));
       $("autonote").textContent="✓ saved in this browser";
-      setTimeout(function(){$("autonote").textContent="";},1500);}catch(e){}
+      setTimeout(function(){$("autonote").textContent="";},1500);
+    }catch(e){}
   },600);
 }
 
 // ---- wiring ---------------------------------------------------------
 ["firstName","lastName","project","mentor","week","notes"].forEach(function(id){
-  $(id).addEventListener("input",function(){autosave();schedulePreview();validate();});
+  $(id).addEventListener("input",onEdit);
 });
-$("week").addEventListener("change",function(){autosave();schedulePreview();validate();});
-$("rubric").addEventListener("change",function(){autosave();updateSelfScore();validate();schedulePreview();});
+$("week").addEventListener("change",onEdit);
+$("rubric").addEventListener("change",onEdit);
 
 function setDefaultWeek(){
   if($("week").value)return;
@@ -504,6 +693,7 @@ function setDefaultWeek(){
 (function init(){
   var saved=localStorage.getItem("perfReviewDraft");
   if(saved){try{loadData(JSON.parse(saved));setDefaultWeek();updateAll();return;}catch(e){}}
+  addDelta();addDelta();
   setDefaultWeek();
   updateAll();
 })();
