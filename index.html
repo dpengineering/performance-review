@@ -420,6 +420,9 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .cp{display:flex;gap:.5rem;align-items:flex-start}
 .cp input,.cp textarea{flex:1;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.9rem;background:#f8fafc}
 .cp textarea{resize:vertical;line-height:1.5}
+.cp .outval{flex:1;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem;line-height:1.5;background:#f8fafc;min-height:2.2rem;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
+.cp .outval.pre{white-space:pre-wrap}
+.cp .outval:empty::before{content:attr(data-empty);color:#94a3b8}
 .cp button{flex:none;border:0;border-radius:8px;padding:.5rem .8rem;font:inherit;font-weight:600;background:#4f46e5;color:#fff;cursor:pointer}
 .progress{font-weight:600;color:#64748b}
 @media (max-width:560px){.scoreband{flex-direction:column}.portfolio .gallery{grid-template-columns:1fr}.seg{margin-left:0}.desc,.selfline,.gradelabel{margin-left:0}}
@@ -479,44 +482,57 @@ function artifactSectionsHTML(codes){
 // Runtime embedded in the artifact — wires the mentor controls, computes
 // the score live, and fills the copy-ready fields. Never called in this app.
 function mentorRuntime(){
-  var wrap=document.getElementById("mentor"),notes=document.getElementById("mNotes");
+  var byId=function(id){return document.getElementById(id);};
+  var wrap=byId("mentor");
+  // Read text from a field OR a contenteditable/plain element, safely.
+  function fieldText(el){ if(!el) return ""; var v=(el.value!==undefined&&el.value!==null)?el.value:(el.innerText||el.textContent||""); return v; }
+  // Write to an output. The Score/Comment outputs are <div>s driven by
+  // textContent (SpeedGrader renders this reliably; a programmatic
+  // <input>.value does NOT show up in its sandboxed preview).
+  function setOut(id,v){ var el=byId(id); if(el) el.textContent=v; }
   function readCodes(){
     var codes={};
     ITEMS.forEach(function(it){
-      var el=wrap.querySelector('input[name="m_'+it.n+'"]:checked');
+      var el=wrap&&wrap.querySelector('input[name="m_'+it.n+'"]:checked');
       if(el)codes[it.n]=el.value;
     });
     return codes;
   }
   function refresh(){
-    var res=computeScore(readCodes()),done=res.answered===res.total;
-    document.getElementById("mScore").textContent=done?res.overall.toFixed(2):"—";
-    document.getElementById("mCats").textContent="Productive "+res.sub.prod+"/"+res.max.prod+
-      "  ·  Counterproductive "+res.sub.counter+"/"+res.max.counter+
-      "  ·  Performance "+res.sub.perf+"/"+res.max.perf;
-    document.getElementById("progress").textContent="("+res.answered+"/"+res.total+" rated)";
-    // Per-section comments, then general notes — appended to the score summary.
-    var extra="";
-    document.querySelectorAll(".seccomment-t").forEach(function(t){
-      var v=t.value.trim();
-      if(v)extra+="\n\n"+t.getAttribute("data-section")+": "+v;
-    });
-    if(notes&&notes.value.trim())extra+="\n\n"+notes.value.trim();
-    document.getElementById("scoreOut").value=done?res.overall.toFixed(2):"";
-    document.getElementById("commentOut").value=formatComment(res)+extra;
+    try{
+      var res=computeScore(readCodes()),done=res.answered===res.total;
+      setOut("mScore",done?res.overall.toFixed(2):"—");
+      setOut("mCats","Productive "+res.sub.prod+"/"+res.max.prod+
+        "  ·  Counterproductive "+res.sub.counter+"/"+res.max.counter+
+        "  ·  Performance "+res.sub.perf+"/"+res.max.perf);
+      setOut("progress","("+res.answered+"/"+res.total+" rated)");
+      // Per-section comments, then general notes — appended to the score summary.
+      var extra="",boxes=document.querySelectorAll(".seccomment-t");
+      for(var i=0;i<boxes.length;i++){
+        var v=fieldText(boxes[i]).trim();
+        if(v)extra+="\n\n"+boxes[i].getAttribute("data-section")+": "+v;
+      }
+      var gen=fieldText(byId("mNotes")).trim();
+      if(gen)extra+="\n\n"+gen;
+      setOut("scoreOut",done?res.overall.toFixed(2):"");
+      setOut("commentOut",formatComment(res)+extra);
+    }catch(e){}
   }
-  wrap.addEventListener("change",refresh);
-  wrap.addEventListener("input",refresh);   // catches typing in section-comment boxes
-  if(notes)notes.addEventListener("input",refresh);
+  // Listen at the document level so radios, section-comment boxes and the
+  // notes field are all covered regardless of nesting.
+  document.addEventListener("change",refresh);
+  document.addEventListener("input",refresh);
   document.querySelectorAll("[data-copy]").forEach(function(btn){
     var orig=btn.textContent;
     btn.addEventListener("click",function(){
-      var t=document.getElementById(btn.getAttribute("data-copy"));
-      t.focus();if(t.select)t.select();
+      var t=byId(btn.getAttribute("data-copy")); if(!t) return;
+      var text=fieldText(t);
+      // Select the output's text so ⌘C / Ctrl+C always works as a fallback.
+      try{var r=document.createRange();r.selectNodeContents(t);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}catch(e){}
       var flash=function(msg){btn.textContent=msg;setTimeout(function(){btn.textContent=orig;},1600);};
       var okExec=false;try{okExec=document.execCommand("copy");}catch(e){}
       if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(t.value).then(function(){flash("Copied ✓");},function(){flash(okExec?"Copied ✓":"Selected — ⌘C");});
+        navigator.clipboard.writeText(text).then(function(){flash("Copied ✓");},function(){flash(okExec?"Copied ✓":"Selected — ⌘C");});
       }else{flash(okExec?"Copied ✓":"Selected — ⌘C");}
     });
   });
@@ -559,8 +575,8 @@ function buildArtifact(d){
     '<div id="mentor">'+artifactSectionsHTML(d.codes)+'</div>\n'+
     '<div class="out">\n<h3>For SpeedGrader</h3>\n<p class="subtle">Rate all 12 items, add any feedback, then copy these in.</p>\n'+
       '<div class="outrow"><label>Notes / feedback (optional — added to the comment)</label><div class="cp"><textarea id="mNotes" rows="3" placeholder="Written feedback for the student..."></textarea></div></div>\n'+
-      '<div class="outrow"><label>Score (0.00–4.00)</label><div class="cp"><input id="scoreOut" readonly placeholder="Rate all items…"><button data-copy="scoreOut">Copy</button></div></div>\n'+
-      '<div class="outrow"><label>Comment</label><div class="cp"><textarea id="commentOut" rows="5" readonly></textarea><button data-copy="commentOut">Copy</button></div></div>\n'+
+      '<div class="outrow"><label>Score (0.00–4.00)</label><div class="cp"><div class="outval" id="scoreOut" data-empty="Rate all items…"></div><button data-copy="scoreOut">Copy</button></div></div>\n'+
+      '<div class="outrow"><label>Comment</label><div class="cp"><div class="outval pre" id="commentOut"></div><button data-copy="commentOut">Copy</button></div></div>\n'+
     '</div>\n'+
     '</div>\n'+
     '<script type="application/json" id="pr-data">'+dataJson+'<\/script>\n'+
