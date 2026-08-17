@@ -196,9 +196,9 @@ const ITEMS=[
 ];
 const POINTS={prod:{a:3,m:2,s:1,n:0},counter:{a:0,m:1,s:2,n:3},perf:{a:3,m:2,s:1,n:0}};
 const SECTIONS=[
-  {at:1,title:"Performance Review",key:"a = absolutely · m = mostly · s = somewhat · n = not at all"},
-  {at:4,title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
-  {at:11,title:"Counterproductive Behavior",key:"Reversed — “never” is best · counts against the score",neg:true}
+  {at:1,cat:"perf",title:"Performance Review",key:"a = absolutely · m = mostly · s = somewhat · n = not at all"},
+  {at:4,cat:"prod",title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
+  {at:11,cat:"counter",title:"Counterproductive Behavior",key:"Reversed — “never” is best · counts against the score",neg:true}
 ];
 const CODE_LABELS={std:{a:"Always",m:"Mostly",s:"Sometimes",n:"Never"},perf:{a:"Absolutely",m:"Mostly",s:"Somewhat",n:"Not at all"}};
 function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
@@ -405,6 +405,13 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .seg span{display:inline-block;padding:.4rem .7rem;font-size:.82rem;font-weight:600;color:#475569;cursor:pointer;border-right:1px solid #cbd5e1;user-select:none}
 .seg .opt:last-child span{border-right:0}
 .seg input:checked+span{background:#4f46e5;color:#fff}
+.seccomment{margin:.1rem 0 1.1rem}
+.seccomment summary{display:inline-block;cursor:pointer;font-size:.8rem;font-weight:600;color:#4f46e5;list-style:none;padding:.25rem 0;user-select:none}
+.seccomment summary::-webkit-details-marker{display:none}
+.seccomment summary::marker{content:""}
+.seccomment summary:hover{text-decoration:underline}
+.seccomment[open] summary{color:#475569}
+.seccomment textarea{display:block;width:100%;margin-top:.4rem;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.9rem;line-height:1.5;resize:vertical;min-height:56px;background:#fff}
 .out{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-top:1.5rem}
 .out h3{margin:0 0 .2rem;font-size:1rem}
 .out .subtle{color:#64748b;font-size:.82rem;margin:0 0 .8rem}
@@ -451,16 +458,21 @@ function renderDeltas(deltas){
   return rows?'<div class="deltas"><h2>56 DELTAs — Skills</h2>'+rows+'</div>':"";
 }
 
-function artifactRowsHTML(codes){
-  return ITEMS.map(function(it){
-    var c=codes[it.n];
-    var selfLabel=c?labelSet(it.cat)[c]:"— (not rated)";
-    return sectionHeadHTML(it.n)+
-      '<div class="item'+(it.cat==="counter"?" neg":"")+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
-      '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+
-      '<div class="selfline">Student self-rating: <strong>'+selfLabel+'</strong></div>'+
-      '<div class="gradelabel">Mentor rating</div>'+
-      segHTML("m_"+it.n,null,it.cat,false)+'</div>';
+function artifactSectionsHTML(codes){
+  return SECTIONS.map(function(sec){
+    var head='<div class="sec'+(sec.neg?" neg":"")+'"><h3>'+sec.title+'</h3><div class="seckey">'+sec.key+'</div></div>';
+    var rows=ITEMS.filter(function(it){return it.cat===sec.cat;}).map(function(it){
+      var c=codes[it.n];
+      var selfLabel=c?labelSet(it.cat)[c]:"— (not rated)";
+      return '<div class="item'+(it.cat==="counter"?" neg":"")+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
+        '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+
+        '<div class="selfline">Student self-rating: <strong>'+selfLabel+'</strong></div>'+
+        '<div class="gradelabel">Mentor rating</div>'+
+        segHTML("m_"+it.n,null,it.cat,false)+'</div>';
+    }).join("");
+    var comment='<details class="seccomment"><summary>＋ Comment on '+esc(sec.title)+'</summary>'+
+      '<textarea class="seccomment-t" data-section="'+esc(sec.title)+'" placeholder="Optional feedback on '+esc(sec.title)+'…"></textarea></details>';
+    return head+rows+comment;
   }).join("");
 }
 
@@ -483,11 +495,18 @@ function mentorRuntime(){
       "  ·  Counterproductive "+res.sub.counter+"/"+res.max.counter+
       "  ·  Performance "+res.sub.perf+"/"+res.max.perf;
     document.getElementById("progress").textContent="("+res.answered+"/"+res.total+" rated)";
-    var n=(notes&&notes.value.trim())?("\n\n"+notes.value.trim()):"";
+    // Per-section comments, then general notes — appended to the score summary.
+    var extra="";
+    document.querySelectorAll(".seccomment-t").forEach(function(t){
+      var v=t.value.trim();
+      if(v)extra+="\n\n"+t.getAttribute("data-section")+": "+v;
+    });
+    if(notes&&notes.value.trim())extra+="\n\n"+notes.value.trim();
     document.getElementById("scoreOut").value=done?res.overall.toFixed(2):"";
-    document.getElementById("commentOut").value=formatComment(res)+n;
+    document.getElementById("commentOut").value=formatComment(res)+extra;
   }
   wrap.addEventListener("change",refresh);
+  wrap.addEventListener("input",refresh);   // catches typing in section-comment boxes
   if(notes)notes.addEventListener("input",refresh);
   document.querySelectorAll("[data-copy]").forEach(function(btn){
     var orig=btn.textContent;
@@ -537,7 +556,7 @@ function buildArtifact(d){
     '<div class="cats" id="mCats"></div>\n'+
     notesBlock+
     '<div class="note">⭐ <strong>Mentors:</strong> rate each item below — the score updates live. Then copy the score and comment into SpeedGrader.</div>\n'+
-    '<div id="mentor">'+artifactRowsHTML(d.codes)+'</div>\n'+
+    '<div id="mentor">'+artifactSectionsHTML(d.codes)+'</div>\n'+
     '<div class="out">\n<h3>For SpeedGrader</h3>\n<p class="subtle">Rate all 12 items, add any feedback, then copy these in.</p>\n'+
       '<div class="outrow"><label>Notes / feedback (optional — added to the comment)</label><div class="cp"><textarea id="mNotes" rows="3" placeholder="Written feedback for the student..."></textarea></div></div>\n'+
       '<div class="outrow"><label>Score (0.00–4.00)</label><div class="cp"><input id="scoreOut" readonly placeholder="Rate all items…"><button data-copy="scoreOut">Copy</button></div></div>\n'+
