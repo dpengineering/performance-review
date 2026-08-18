@@ -528,18 +528,32 @@ function mentorRuntime(){
   var mn=byId("mNotes"); if(mn)mn.addEventListener("input",refresh);
   // Backstop: container-level listeners too, in case a control is missed.
   if(wrap){wrap.addEventListener("change",refresh);wrap.addEventListener("input",refresh);}
+  function selectContents(el){try{var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
   document.querySelectorAll("[data-copy]").forEach(function(btn){
     var orig=btn.textContent;
     btn.addEventListener("click",function(){
       var t=byId(btn.getAttribute("data-copy")); if(!t) return;
       var text=fieldText(t);
-      // Select the output's text so ⌘C / Ctrl+C always works as a fallback.
-      try{var r=document.createRange();r.selectNodeContents(t);var sel=window.getSelection();sel.removeAllRanges();sel.addRange(r);}catch(e){}
       var flash=function(msg){btn.textContent=msg;setTimeout(function(){btn.textContent=orig;},1600);};
-      var okExec=false;try{okExec=document.execCommand("copy");}catch(e){}
+      // Copy from a temporary <textarea> so newlines survive the paste exactly.
+      // (Copying a rendered <div>'s text can collapse the line breaks in the
+      // paste target, e.g. Canvas's comment box.)
+      var ok=false;
+      try{
+        var ta=document.createElement("textarea");
+        ta.value=text;
+        ta.setAttribute("readonly","");
+        ta.style.cssText="position:fixed;top:0;left:-9999px;white-space:pre";
+        document.body.appendChild(ta);
+        ta.focus();ta.select();
+        ok=document.execCommand("copy");
+        document.body.removeChild(ta);
+      }catch(e){}
+      if(ok){flash("Copied ✓");return;}
+      // Fallbacks: async clipboard (standalone), else select for manual ⌘C.
       if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(function(){flash("Copied ✓");},function(){flash(okExec?"Copied ✓":"Selected — ⌘C");});
-      }else{flash(okExec?"Copied ✓":"Selected — ⌘C");}
+        navigator.clipboard.writeText(text).then(function(){flash("Copied ✓");},function(){selectContents(t);flash("Selected — ⌘C");});
+      }else{selectContents(t);flash("Selected — ⌘C");}
     });
   });
   refresh();
