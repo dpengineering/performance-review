@@ -518,10 +518,16 @@ function mentorRuntime(){
       setOut("commentOut",formatComment(res)+extra);
     }catch(e){}
   }
-  // Listen at the document level so radios, section-comment boxes and the
-  // notes field are all covered regardless of nesting.
-  document.addEventListener("change",refresh);
-  document.addEventListener("input",refresh);
+  // Attach directly to each control. This is the most compatible approach —
+  // it does not rely on events bubbling up to document/wrap, which some embed
+  // contexts (e.g. SpeedGrader's preview) can intercept or not deliver.
+  var radios=(wrap||document).querySelectorAll('input[type="radio"]');
+  for(var a=0;a<radios.length;a++)radios[a].addEventListener("change",refresh);
+  var tas=document.querySelectorAll(".seccomment-t");
+  for(var b=0;b<tas.length;b++)tas[b].addEventListener("input",refresh);
+  var mn=byId("mNotes"); if(mn)mn.addEventListener("input",refresh);
+  // Backstop: container-level listeners too, in case a control is missed.
+  if(wrap){wrap.addEventListener("change",refresh);wrap.addEventListener("input",refresh);}
   document.querySelectorAll("[data-copy]").forEach(function(btn){
     var orig=btn.textContent;
     btn.addEventListener("click",function(){
