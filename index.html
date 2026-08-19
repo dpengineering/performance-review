@@ -91,7 +91,7 @@
   <div class="app-head">
     <div>
       <h1>📋 Weekly Performance Review</h1>
-      <p>Attach your portfolio post, rate your week, then download one page to submit on Canvas. Your mentor grades it in SpeedGrader.</p>
+      <p>Attach your portfolio post, rate your week, then download one page to submit on Canvas. Your mentor grades it with the Canvas rubric.</p>
     </div>
     <a class="switch-link" href="https://dpengineering.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator →</a>
   </div>
@@ -114,7 +114,7 @@
       <strong>How this works:</strong> ① Make this week's post in the
       <a href="https://dpengineering.github.io/portfolio-generator/" target="_blank" rel="noopener">Portfolio Generator</a> and download it.
       ② Attach it below, add your DELTAs, and rate all 12 items. ③ Click <em>Download for Canvas</em> and submit the file.
-      Your ratings are a <em>self-assessment mirror</em> — your mentor's grade in SpeedGrader is the official one.
+      Your ratings are a <em>self-assessment mirror</em> — your mentor's grade, entered with the Canvas rubric, is the official one.
     </div>
 
     <div class="selfscore">
@@ -206,7 +206,7 @@ function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
 const DELTA_SUGGESTIONS=["Ability to Learn","Adaptability","Breaking Orthodoxies","Coaching","Collaboration","Computational and Algorithmic Thinking","Creativity and Imagination","Digital Collaboration","Digital Learning","Driving Change and Innovation","Self-development","Self Motivation and Wellness","Storytelling and Public Speaking","Time Management and Prioritization"];
 // =====================================================================
 
-// ---- scoring engine (also embedded verbatim into the artifact) ------
+// ---- scoring engine (drives the live self-score in this app) --------
 function computeScore(codes){
   var raw=0,sub={prod:0,counter:0,perf:0},max={prod:0,counter:0,perf:0},answered=0;
   ITEMS.forEach(function(it){
@@ -218,11 +218,6 @@ function computeScore(codes){
   var maxRaw=max.prod+max.counter+max.perf;   // 36
   return {raw:raw,answered:answered,total:ITEMS.length,sub:sub,max:max,maxRaw:maxRaw,
     overall:raw/(maxRaw/4),pct:raw/maxRaw*100};
-}
-function formatComment(res){
-  return "Weekly Performance Review — "+res.overall.toFixed(2)+" / 4.00 ("+Math.round(res.pct)+"%)\n"+
-    "Productive "+res.sub.prod+"/"+res.max.prod+"  ·  Counterproductive "+res.sub.counter+"/"+res.max.counter+
-    "  ·  Performance "+res.sub.perf+"/"+res.max.perf;
 }
 
 // ---- shared HTML builders -------------------------------------------
@@ -307,11 +302,46 @@ function renderPortSummary(){
     '<button type="button" class="rm" id="rmPort">Remove</button></div>';
   $("rmPort").onclick=function(){state.portfolio=null;renderPortSummary();onEdit();};
 }
+// Re-encode an embedded photo smaller so the combined submission stays light —
+// students embed full portfolio galleries, and large data-URLs bloat the file.
+const IMG_MAXDIM=1000, IMG_QUALITY=0.7;
+function recompressDataUrl(dataUrl){
+  return new Promise(function(res){
+    if(!dataUrl||dataUrl.indexOf("data:image")!==0){res(dataUrl);return;}
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+        var s=Math.min(1,IMG_MAXDIM/Math.max(w,h)), nw=Math.round(w*s), nh=Math.round(h*s);
+        var c=document.createElement("canvas");c.width=nw;c.height=nh;
+        c.getContext("2d").drawImage(img,0,0,nw,nh);
+        var out=c.toDataURL("image/jpeg",IMG_QUALITY);
+        res(out.length<dataUrl.length?out:dataUrl);   // keep whichever is smaller
+      }catch(e){res(dataUrl);}
+    };
+    img.onerror=function(){res(dataUrl);};
+    img.src=dataUrl;
+  });
+}
+async function recompressPortfolio(data){
+  var weeks=data.weeks||[];
+  for(var i=0;i<weeks.length;i++){
+    var w=weeks[i];
+    var groups=["images1","images2"];
+    for(var gi=0;gi<groups.length;gi++){
+      var arr=w[groups[gi]]||[];
+      for(var j=0;j<arr.length;j++){ if(arr[j]&&arr[j].dataUrl) arr[j].dataUrl=await recompressDataUrl(arr[j].dataUrl); }
+    }
+  }
+  if(data.cover) data.cover=await recompressDataUrl(data.cover);
+  return data;
+}
 function attachPortfolio(txt){
   var data;
   try{data=/^\s*[{[]/.test(txt)?JSON.parse(txt):parsePortfolioHTML(txt);}catch(e){data=null;}
   if(!data||!data.weeks){alert("That doesn't look like a Portfolio Generator post. Make your post at the Portfolio Generator, download it, and attach that .html file.");return;}
-  state.portfolio=data;renderPortSummary();onEdit();
+  $("portSummary").innerHTML='<div class="attached"><div>Optimizing photos…</div></div>';
+  recompressPortfolio(data).then(function(d){state.portfolio=d;renderPortSummary();onEdit();});
 }
 (function wirePortDrop(){
   var el=$("portDrop");
@@ -381,7 +411,6 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .sb{flex:1;background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.7rem .9rem;text-align:center}
 .sb.primary{border-color:#4f46e5;box-shadow:0 0 0 1px #4f46e5 inset}
 .sbnum{font-size:2rem;font-weight:800;color:#4f46e5;line-height:1}
-.sb.self .sbnum{color:#64748b}
 .sblab{font-size:.76rem;color:#64748b;font-weight:600;margin-top:.2rem}
 .cats{text-align:center;font-size:.8rem;color:#64748b;margin-bottom:1.25rem}
 .note{background:#eef2ff;border:1px solid #c7d2fe;color:#3730a3;border-radius:8px;padding:.55rem .7rem;font-size:.82rem;margin-bottom:1rem}
@@ -396,36 +425,17 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .itext{font-weight:600}
 .desc{margin:.4rem 0 .55rem 2rem;padding:0;color:#64748b;font-size:.8rem}
 .desc li{margin:.12rem 0}
-.selfline{margin:.45rem 0 .5rem 2rem;font-size:.82rem;color:#475569}
-.selfline strong{color:#1e293b}
-.gradelabel{font-size:.74rem;font-weight:700;color:#4f46e5;text-transform:uppercase;letter-spacing:.03em;margin:.2rem 0 .3rem 2rem}
-.seg{display:inline-flex;flex-wrap:wrap;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden;margin-left:2rem}
+.selfrate{display:flex;align-items:center;gap:.55rem;flex-wrap:wrap;margin:.5rem 0 .15rem 2rem}
+.selfrate-lab{font-size:.74rem;font-weight:700;color:#4f46e5;text-transform:uppercase;letter-spacing:.03em}
+.selfrate-none{font-size:.78rem;font-style:italic;color:#94a3b8}
+/* read-only segmented control: chosen option highlighted via :checked+span (no JS) */
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid #cbd5e1;border-radius:8px;overflow:hidden}
 .seg .opt{margin:0}
 .seg input{position:absolute;opacity:0;width:0;height:0;pointer-events:none}
-.seg span{display:inline-block;padding:.4rem .7rem;font-size:.82rem;font-weight:600;color:#475569;cursor:pointer;border-right:1px solid #cbd5e1;user-select:none}
+.seg span{display:inline-block;padding:.32rem .58rem;font-size:.78rem;font-weight:600;color:#94a3b8;border-right:1px solid #cbd5e1;user-select:none}
 .seg .opt:last-child span{border-right:0}
 .seg input:checked+span{background:#4f46e5;color:#fff}
-.seccomment{margin:.1rem 0 1.1rem}
-.seccomment summary{display:inline-block;cursor:pointer;font-size:.8rem;font-weight:600;color:#4f46e5;list-style:none;padding:.25rem 0;user-select:none}
-.seccomment summary::-webkit-details-marker{display:none}
-.seccomment summary::marker{content:""}
-.seccomment summary:hover{text-decoration:underline}
-.seccomment[open] summary{color:#475569}
-.seccomment textarea{display:block;width:100%;margin-top:.4rem;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.9rem;line-height:1.5;resize:vertical;min-height:56px;background:#fff}
-.out{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:1rem;margin-top:1.5rem}
-.out h3{margin:0 0 .2rem;font-size:1rem}
-.out .subtle{color:#64748b;font-size:.82rem;margin:0 0 .8rem}
-.outrow{margin-bottom:.85rem}
-.outrow label{display:block;font-size:.78rem;font-weight:700;color:#475569;margin-bottom:.3rem}
-.cp{display:flex;gap:.5rem;align-items:flex-start}
-.cp input,.cp textarea{flex:1;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font:inherit;font-size:.9rem;background:#f8fafc}
-.cp textarea{resize:vertical;line-height:1.5}
-.cp .outval{flex:1;padding:.5rem .6rem;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem;line-height:1.5;background:#f8fafc;min-height:2.2rem;overflow-wrap:anywhere;user-select:text;-webkit-user-select:text}
-.cp .outval.pre{white-space:pre-wrap}
-.cp .outval:empty::before{content:attr(data-empty);color:#94a3b8}
-.cp button{flex:none;border:0;border-radius:8px;padding:.5rem .8rem;font:inherit;font-weight:600;background:#4f46e5;color:#fff;cursor:pointer}
-.progress{font-weight:600;color:#64748b}
-@media (max-width:560px){.scoreband{flex-direction:column}.portfolio .gallery{grid-template-columns:1fr}.seg{margin-left:0}.desc,.selfline,.gradelabel{margin-left:0}}
+@media (max-width:560px){.scoreband{flex-direction:column}.portfolio .gallery{grid-template-columns:1fr}.desc,.selfrate{margin-left:0}}
 `;
 
 function gallery(images,ctr,group){
@@ -461,102 +471,26 @@ function renderDeltas(deltas){
   return rows?'<div class="deltas"><h2>56 DELTAs — Skills</h2>'+rows+'</div>':"";
 }
 
+// Static, read-only self-rating summary embedded in the submission. No
+// controls and no script — it renders as plain HTML in SpeedGrader's
+// sandboxed preview, giving the mentor the student's self-assessment as
+// context while they grade with the Canvas rubric.
 function artifactSectionsHTML(codes){
   return SECTIONS.map(function(sec){
     var head='<div class="sec'+(sec.neg?" neg":"")+'"><h3>'+sec.title+'</h3><div class="seckey">'+sec.key+'</div></div>';
     var rows=ITEMS.filter(function(it){return it.cat===sec.cat;}).map(function(it){
       var c=codes[it.n];
-      var selfLabel=c?labelSet(it.cat)[c]:"— (not rated)";
+      // Reuse the segmented control, read-only, with the student's choice
+      // highlighted — a scannable self-rating for the mentor. Pure CSS
+      // (:checked+span), so it renders in SpeedGrader's script-less preview.
+      var unrated=c?"":'<span class="selfrate-none">not rated</span>';
       return '<div class="item'+(it.cat==="counter"?" neg":"")+'"><div class="ihead"><span class="inum">'+it.n+'</span>'+
         '<span class="itext">'+it.text+'</span></div>'+descHTML(it)+
-        '<div class="selfline">Student self-rating: <strong>'+selfLabel+'</strong></div>'+
-        '<div class="gradelabel">Mentor rating</div>'+
-        segHTML("m_"+it.n,null,it.cat,false)+'</div>';
+        '<div class="selfrate"><span class="selfrate-lab">Self-rating</span>'+
+        segHTML("self_"+it.n,c||null,it.cat,true)+unrated+'</div></div>';
     }).join("");
-    var comment='<details class="seccomment"><summary>＋ Comment on '+esc(sec.title)+'</summary>'+
-      '<textarea class="seccomment-t" data-section="'+esc(sec.title)+'" placeholder="Optional feedback on '+esc(sec.title)+'…"></textarea></details>';
-    return head+rows+comment;
+    return head+rows;
   }).join("");
-}
-
-// Runtime embedded in the artifact — wires the mentor controls, computes
-// the score live, and fills the copy-ready fields. Never called in this app.
-function mentorRuntime(){
-  var byId=function(id){return document.getElementById(id);};
-  var wrap=byId("mentor");
-  // Read text from a field OR a contenteditable/plain element, safely.
-  function fieldText(el){ if(!el) return ""; var v=(el.value!==undefined&&el.value!==null)?el.value:(el.innerText||el.textContent||""); return v; }
-  // Write to an output. The Score/Comment outputs are <div>s driven by
-  // textContent (SpeedGrader renders this reliably; a programmatic
-  // <input>.value does NOT show up in its sandboxed preview).
-  function setOut(id,v){ var el=byId(id); if(el) el.textContent=v; }
-  function readCodes(){
-    var codes={};
-    ITEMS.forEach(function(it){
-      var el=wrap&&wrap.querySelector('input[name="m_'+it.n+'"]:checked');
-      if(el)codes[it.n]=el.value;
-    });
-    return codes;
-  }
-  function refresh(){
-    try{
-      var res=computeScore(readCodes()),done=res.answered===res.total;
-      setOut("mScore",done?res.overall.toFixed(2):"—");
-      setOut("mCats","Productive "+res.sub.prod+"/"+res.max.prod+
-        "  ·  Counterproductive "+res.sub.counter+"/"+res.max.counter+
-        "  ·  Performance "+res.sub.perf+"/"+res.max.perf);
-      setOut("progress","("+res.answered+"/"+res.total+" rated)");
-      // Per-section comments, then general notes — appended to the score summary.
-      var extra="",boxes=document.querySelectorAll(".seccomment-t");
-      for(var i=0;i<boxes.length;i++){
-        var v=fieldText(boxes[i]).trim();
-        if(v)extra+="\n\n"+boxes[i].getAttribute("data-section")+": "+v;
-      }
-      var gen=fieldText(byId("mNotes")).trim();
-      if(gen)extra+="\n\n"+gen;
-      setOut("scoreOut",done?res.overall.toFixed(2):"");
-      setOut("commentOut",formatComment(res)+extra);
-    }catch(e){}
-  }
-  // Attach directly to each control. This is the most compatible approach —
-  // it does not rely on events bubbling up to document/wrap, which some embed
-  // contexts (e.g. SpeedGrader's preview) can intercept or not deliver.
-  var radios=(wrap||document).querySelectorAll('input[type="radio"]');
-  for(var a=0;a<radios.length;a++)radios[a].addEventListener("change",refresh);
-  var tas=document.querySelectorAll(".seccomment-t");
-  for(var b=0;b<tas.length;b++)tas[b].addEventListener("input",refresh);
-  var mn=byId("mNotes"); if(mn)mn.addEventListener("input",refresh);
-  // Backstop: container-level listeners too, in case a control is missed.
-  if(wrap){wrap.addEventListener("change",refresh);wrap.addEventListener("input",refresh);}
-  function selectContents(el){try{var r=document.createRange();r.selectNodeContents(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);}catch(e){}}
-  document.querySelectorAll("[data-copy]").forEach(function(btn){
-    var orig=btn.textContent;
-    btn.addEventListener("click",function(){
-      var t=byId(btn.getAttribute("data-copy")); if(!t) return;
-      var text=fieldText(t);
-      var flash=function(msg){btn.textContent=msg;setTimeout(function(){btn.textContent=orig;},1600);};
-      // Copy from a temporary <textarea> so newlines survive the paste exactly.
-      // (Copying a rendered <div>'s text can collapse the line breaks in the
-      // paste target, e.g. Canvas's comment box.)
-      var ok=false;
-      try{
-        var ta=document.createElement("textarea");
-        ta.value=text;
-        ta.setAttribute("readonly","");
-        ta.style.cssText="position:fixed;top:0;left:-9999px;white-space:pre";
-        document.body.appendChild(ta);
-        ta.focus();ta.select();
-        ok=document.execCommand("copy");
-        document.body.removeChild(ta);
-      }catch(e){}
-      if(ok){flash("Copied ✓");return;}
-      // Fallbacks: async clipboard (standalone), else select for manual ⌘C.
-      if(navigator.clipboard&&navigator.clipboard.writeText){
-        navigator.clipboard.writeText(text).then(function(){flash("Copied ✓");},function(){selectContents(t);flash("Selected — ⌘C");});
-      }else{selectContents(t);flash("Selected — ⌘C");}
-    });
-  });
-  refresh();
 }
 
 function buildArtifact(d){
@@ -565,11 +499,9 @@ function buildArtifact(d){
     .filter(Boolean).map(esc).join(" · ");
   var self=computeScore(d.codes);
   var selfNum=self.answered===self.total?self.overall.toFixed(2):"—";
+  var selfCats=self.answered?
+    ("Productive "+self.sub.prod+"/"+self.max.prod+" · Counterproductive "+self.sub.counter+"/"+self.max.counter+" · Performance "+self.sub.perf+"/"+self.max.perf):"";
   var notesBlock=d.notes?'<div class="note"><strong>Student note:</strong> '+esc(d.notes)+'</div>':"";
-  var engine="var ITEMS="+JSON.stringify(ITEMS.map(function(i){return {n:i.n,cat:i.cat};}))+";\n"+
-    "var POINTS="+JSON.stringify(POINTS)+";\n"+
-    computeScore.toString()+"\n"+formatComment.toString()+"\n"+
-    "("+mentorRuntime.toString()+")();";
   // Embedded state for re-opening (image dataUrls omitted; recovered from the rendered galleries).
   var portMeta=d.portfolio?{meta:d.portfolio.meta,reflection:d.portfolio.reflection,
     weeks:(d.portfolio.weeks||[]).map(function(w){return {title:w.title,text1:w.text1,text2:w.text2,
@@ -586,21 +518,14 @@ function buildArtifact(d){
     '<hr class="divider">\n'+
     '<h2 class="revhead">Weekly Performance Review</h2>\n'+
     '<div class="scoreband">'+
-      '<div class="sb self"><div class="sbnum">'+selfNum+'</div><div class="sblab">Student self-score</div></div>'+
-      '<div class="sb primary"><div class="sbnum" id="mScore">—</div><div class="sblab">Mentor score <span class="progress" id="progress"></span></div></div>'+
+      '<div class="sb primary"><div class="sbnum">'+selfNum+'</div><div class="sblab">Student self-score</div></div>'+
     '</div>\n'+
-    '<div class="cats" id="mCats"></div>\n'+
+    '<div class="cats">'+selfCats+'</div>\n'+
     notesBlock+
-    '<div class="note">⭐ <strong>Mentors:</strong> rate each item below — the score updates live. Then copy the score and comment into SpeedGrader.</div>\n'+
+    '<div class="note">These ratings are the student’s own self-assessment. The official grade is entered by the mentor using the Canvas rubric.</div>\n'+
     '<div id="mentor">'+artifactSectionsHTML(d.codes)+'</div>\n'+
-    '<div class="out">\n<h3>For SpeedGrader</h3>\n<p class="subtle">Rate all 12 items, add any feedback, then copy these in.</p>\n'+
-      '<div class="outrow"><label>Notes / feedback (optional — added to the comment)</label><div class="cp"><textarea id="mNotes" rows="3" placeholder="Written feedback for the student..."></textarea></div></div>\n'+
-      '<div class="outrow"><label>Score (0.00–4.00)</label><div class="cp"><div class="outval" id="scoreOut" data-empty="Rate all items…"></div><button data-copy="scoreOut">Copy</button></div></div>\n'+
-      '<div class="outrow"><label>Comment</label><div class="cp"><div class="outval pre" id="commentOut"></div><button data-copy="commentOut">Copy</button></div></div>\n'+
-    '</div>\n'+
     '</div>\n'+
     '<script type="application/json" id="pr-data">'+dataJson+'<\/script>\n'+
-    '<script>'+engine+'<\/script>\n'+
     '</body>\n</html>';
 }
 
