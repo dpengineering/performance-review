@@ -196,11 +196,11 @@ const ITEMS=[
 ];
 const POINTS={prod:{a:3,m:2,s:1,n:0},counter:{a:0,m:1,s:2,n:3},perf:{a:3,m:2,s:1,n:0}};
 const SECTIONS=[
-  {at:1,cat:"perf",title:"Performance Review",key:"a = absolutely · m = mostly · s = somewhat · n = not at all"},
+  {at:1,cat:"perf",title:"Performance Review",key:"a = always · m = mostly · s = somewhat · n = not at all"},
   {at:4,cat:"prod",title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
   {at:11,cat:"counter",title:"Counterproductive Behavior",key:"Reversed — “never” is best · counts against the score",neg:true}
 ];
-const CODE_LABELS={std:{a:"Always",m:"Mostly",s:"Sometimes",n:"Never"},perf:{a:"Absolutely",m:"Mostly",s:"Somewhat",n:"Not at all"}};
+const CODE_LABELS={std:{a:"Always",m:"Mostly",s:"Sometimes",n:"Never"},perf:{a:"Always",m:"Mostly",s:"Somewhat",n:"Not at all"}};
 function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
 // DELTA skill suggestions (edit freely; a subset of the DPEngineering 56 DELTAs).
 const DELTA_SUGGESTIONS=["Ability to Learn","Adaptability","Breaking Orthodoxies","Coaching","Collaboration","Computational and Algorithmic Thinking","Creativity and Imagination","Digital Collaboration","Digital Learning","Driving Change and Innovation","Self-development","Self Motivation and Wellness","Storytelling and Public Speaking","Time Management and Prioritization"];
