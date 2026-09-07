@@ -223,7 +223,10 @@ function computeScore(codes){
 // ---- shared HTML builders -------------------------------------------
 function segHTML(name,selected,cat,disabled){
   var L=labelSet(cat);
-  return '<div class="seg">'+["a","m","s","n"].map(function(c){
+  // Counterproductive chips run best-first (Never→Always) to match the reversed
+  // Canvas rubric; the value/code is unchanged, so scoring is unaffected.
+  var order=cat==="counter"?["n","s","m","a"]:["a","m","s","n"];
+  return '<div class="seg">'+order.map(function(c){
     return '<label class="opt"><input type="radio" name="'+name+'" value="'+c+'"'+
       (selected===c?" checked":"")+(disabled?" disabled":"")+'><span>'+L[c]+'</span></label>';
   }).join("")+'</div>';
