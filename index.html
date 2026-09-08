@@ -278,6 +278,10 @@ function parsePortfolioHTML(txt){
   var data=JSON.parse(el.textContent);
   var cov=doc.querySelector(".cover img");
   data.cover=cov?cov.getAttribute("src"):null;
+  // Keep the original post's cover header verbatim (gradient/photo banner + DPEA
+  // logo + name/subtitle) so the embedded portfolio matches the real post.
+  var coverEl=doc.querySelector("header.cover");
+  data.coverHTML=coverEl?coverEl.outerHTML:null;
   var srcs=function(g){return [...doc.querySelectorAll('.gallery[data-group="'+g+'"] figure img')].map(function(i){return i.getAttribute("src");});};
   var g1=srcs(1),g2=srcs(2);
   (data.weeks||[]).forEach(function(w){
@@ -392,17 +396,30 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .ah{margin-bottom:1rem}
 .ah h1{margin:0;font-size:1.3rem}
 .ah p{margin:.25rem 0 0;color:#64748b;font-size:.9rem}
-/* portfolio content (styled like the portfolio-generator post) */
-.portfolio{font-family:Georgia,"Times New Roman",serif;line-height:1.65;margin:0 0 1.5rem}
-.portfolio .pcover img{display:block;width:100%;max-height:360px;object-fit:cover;border-radius:12px;margin-bottom:1.5rem}
-.portfolio section{margin-bottom:2rem}
-.portfolio h2{font-family:system-ui,sans-serif;font-size:1.3rem;color:#111;border-bottom:2px solid #e2e8f0;padding-bottom:.35rem;margin:0 0 .8rem}
-.portfolio p{margin:0 0 1rem}
-.portfolio .key{color:#0043fa;font-weight:600}
-.portfolio .gallery{display:grid;gap:1rem;grid-template-columns:repeat(2,1fr);margin:1.25rem 0}
+/* portfolio content — the portfolio-generator's own post stylesheet, scoped under
+   .portfolio so the embedded post matches the original without touching the review UI */
+.portfolio{font-family:Georgia,"Times New Roman",serif;font-size:18px;line-height:1.65;color:#1e293b}
+.portfolio .cover{position:relative;margin-bottom:2.5rem}
+.portfolio .cover .banner{height:300px;background:linear-gradient(120deg,#0ea5e9,#1e293b)}
+.portfolio .cover img{display:block;width:100%;max-height:460px;object-fit:cover}
+.portfolio .cover-text{position:absolute;left:0;bottom:0;width:100%;padding:2rem 1.5rem 1.25rem;background:linear-gradient(to top,rgba(15,23,42,.78),transparent);color:#fff;font-family:system-ui,sans-serif}
+.portfolio .cover-text h1{font-size:clamp(1.8rem,5vw,3rem);margin:0}
+.portfolio .subtitle{margin:.3rem 0 0;font-size:1.05rem;opacity:.92}
+.portfolio .cover-logo{position:absolute;z-index:2;display:block;height:auto}
+.portfolio .cover-logo.hero{top:46%;left:50%;transform:translate(-50%,-50%);width:168px}
+.portfolio .cover-logo.badge{top:1rem;right:1rem;width:78px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.55))}
+.portfolio main{max-width:860px;margin:0 auto;padding:0 1.25rem}
+.portfolio section{margin-bottom:3.5rem}
+.portfolio h2{font-family:system-ui,sans-serif;font-size:1.5rem;color:rgb(25,25,25);border-bottom:2px solid #e2e8f0;padding-bottom:.4rem;margin:0 0 1rem}
+.portfolio p{margin:0 0 1.25rem}
+.portfolio .key{color:rgb(0,67,250);font-weight:600}
+.portfolio .gallery{display:grid;gap:1rem;margin:1.5rem 0;grid-template-columns:repeat(2,1fr)}
 .portfolio figure{margin:0}
 .portfolio figure img{display:block;width:100%;height:auto;border-radius:10px;border:1px solid #e2e8f0}
-.portfolio figcaption{font-family:system-ui,sans-serif;font-size:.82rem;color:#64748b;margin-top:.4rem;font-style:italic}
+.portfolio figcaption{font-family:system-ui,sans-serif;font-size:.85rem;color:#64748b;margin-top:.5rem;font-style:italic}
+.portfolio pre{background:#0f172a;color:#e2e8f0;padding:1.1rem 1.25rem;border-radius:10px;overflow-x:auto;font-size:.9rem;line-height:1.5}
+.portfolio code{font-family:"SF Mono",Consolas,monospace}
+@media (max-width:640px){.portfolio{font-size:16px}.portfolio .gallery{grid-template-columns:1fr}.portfolio .cover-logo.hero{width:132px}.portfolio .cover-logo.badge{width:62px}}
 .deltas{margin:0 0 1.5rem}
 .deltas h2{font-family:system-ui,sans-serif;font-size:1.2rem;color:#111;border-bottom:2px solid #e2e8f0;padding-bottom:.35rem;margin:0 0 .8rem}
 .delta{background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:.6rem .8rem;margin:0 0 .5rem}
@@ -452,7 +469,8 @@ function gallery(images,ctr,group){
 function renderPortfolio(p){
   if(!p)return "";
   var ctr={n:0};
-  var cover=p.cover?'<div class="pcover"><img src="'+p.cover+'" alt="Cover image"></div>':"";
+  // Verbatim original cover header when available; fall back to a bare cover photo.
+  var cover=p.coverHTML||(p.cover?'<header class="cover"><img src="'+p.cover+'" alt="Cover image"></header>':"");
   var sections=(p.weeks||[]).map(function(w){
     var imgs1=w.images1||[],imgs2=w.images2||[];
     var hasImg=imgs1.some(function(x){return x.dataUrl;})||imgs2.some(function(x){return x.dataUrl;});
@@ -465,7 +483,7 @@ function renderPortfolio(p){
     return h+"</section>";
   }).filter(Boolean).join("");
   var refl=p.reflection?'<section><h2>Looking Back</h2>'+paras(p.reflection)+'</section>':"";
-  return '<div class="portfolio">'+cover+sections+refl+'</div>';
+  return '<div class="portfolio">'+cover+'<main>'+sections+refl+'</main></div>';
 }
 function renderDeltas(deltas){
   var rows=(deltas||[]).filter(function(d){return d.skill||d.text;}).map(function(d){
