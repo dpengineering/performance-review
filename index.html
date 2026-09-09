@@ -441,6 +441,8 @@ body{margin:0;background:#f8fafc;color:#1e293b;font-family:system-ui,-apple-syst
 .mentorbox .mb-h{font-weight:700;font-size:.9rem;color:#334155;margin-bottom:.25rem}
 .mentorbox .mb-p{margin:0 0 .55rem;font-size:.8rem;color:#64748b;line-height:1.45}
 .mentorbox .mb-url{display:block;font-family:"SF Mono",Consolas,monospace;font-size:.78rem;color:#4f46e5;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .6rem;word-break:break-all;line-height:1.4}
+.mentorbox .mb-codelabel{font-size:.78rem;font-weight:700;color:#334155;margin:.7rem 0 .25rem}
+.mentorbox .mb-code{display:block;font-family:"SF Mono",Consolas,monospace;font-size:.78rem;color:#334155;background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:.5rem .6rem;word-break:break-all;line-height:1.4;user-select:all;-webkit-user-select:all}
 .sec{margin:1.4rem 0 .55rem}
 .sec h3{margin:0;font-size:1rem;color:#4f46e5}
 .sec.neg h3{color:#dc2626}
@@ -521,18 +523,19 @@ function artifactSectionsHTML(codes){
   }).join("");
 }
 
-// ---- mentor grading link ---------------------------------------------
-// The submission can't run JS in SpeedGrader, so we bake a link to the grading
-// tool (grade.html) into the page at download time, with the student's ratings
-// encoded in the URL *fragment* (never sent to the server). The mentor copies
-// the link, opens it, adjusts by exception, and pastes the generated comment.
-const GRADE_URL_BASE="https://dpengineering.github.io/performance-review/grade.html";
+// ---- mentor grading code ---------------------------------------------
+// GitHub is blocked at school and the grading tool runs as an embedded page
+// (a cross-origin iframe that can't read a URL fragment), so the submission
+// shows a copyable *code* the mentor pastes into the tool, plus where to find
+// it. The ratings are encoded in the code; it never travels through a server.
+// TODO: set GRADER_PAGE_URL to the grading tool's page on the DPEA Google Site.
+const GRADER_PAGE_URL="https://sites.google.com/dpengineering.org/dpea-portfolios/REPLACE-WITH-GRADER-PAGE";
 function b64url(bin){return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
 function encodePayload(obj){return b64url(unescape(encodeURIComponent(JSON.stringify(obj))));}
-function gradeURL(d){
+function gradeCode(d){
   var codes=ITEMS.map(function(it){return d.codes[it.n]||"-";}).join("");
   var payload={n:d.meta.student||"",w:d.meta.week||"",m:d.meta.mentor||"",p:d.meta.project||"",c:codes};
-  return GRADE_URL_BASE+"#d="+encodePayload(payload);
+  return encodePayload(payload);
 }
 
 function buildArtifact(d){
@@ -544,7 +547,7 @@ function buildArtifact(d){
   var selfCats=self.answered?
     ("Productive "+self.sub.prod+"/"+self.max.prod+" · Counterproductive "+self.sub.counter+"/"+self.max.counter+" · Performance "+self.sub.perf+"/"+self.max.perf):"";
   var notesBlock=d.notes?'<div class="note"><strong>Student note:</strong> '+esc(d.notes)+'</div>':"";
-  var gurl=gradeURL(d);
+  var gcode=gradeCode(d);
   // Embedded state for re-opening (image dataUrls omitted; recovered from the rendered galleries).
   var portMeta=d.portfolio?{meta:d.portfolio.meta,reflection:d.portfolio.reflection,
     weeks:(d.portfolio.weeks||[]).map(function(w){return {title:w.title,text1:w.text1,text2:w.text2,
@@ -569,8 +572,10 @@ function buildArtifact(d){
     '<div id="mentor">'+artifactSectionsHTML(d.codes)+'</div>\n'+
     '<div class="mentorbox">\n'+
       '<div class="mb-h">🔗 For mentors — grade this submission</div>\n'+
-      '<p class="mb-p">Copy the link below into a new browser tab. It opens the grading tool pre-filled with this student’s self-assessment — adjust any ratings, then copy the generated comment into Canvas along with the score.</p>\n'+
-      '<a class="mb-url" href="'+esc(gurl)+'">'+esc(gurl)+'</a>\n'+
+      '<p class="mb-p">① Open the Grading Tool on the DPEA site, ② paste this student’s code into it, ③ adjust any ratings, then copy the generated comment into Canvas along with the score.</p>\n'+
+      '<a class="mb-url" href="'+esc(GRADER_PAGE_URL)+'" target="_blank" rel="noopener">'+esc(GRADER_PAGE_URL)+'</a>\n'+
+      '<div class="mb-codelabel">Grading code (click to select, then copy):</div>\n'+
+      '<code class="mb-code">'+esc(gcode)+'</code>\n'+
     '</div>\n'+
     '</div>\n'+
     '<script type="application/json" id="pr-data">'+dataJson+'<\/script>\n'+
