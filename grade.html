@@ -179,6 +179,11 @@ function extractCode(input){
   return input;                             // assume it's the raw code
 }
 
+// Default note prefilled into every grade — teachers can edit or delete it.
+// (Canvas comment replies don't hit teachers' filtered inboxes, so steer
+// questions to email.)
+const DEFAULT_NOTES="* Please email with any questions/comments. Replying here via a Canvas comment does not reach my primary inbox.";
+
 // ===== state =========================================================
 var student={};        // {n,w,m,p}
 var selfCodes={};      // student's self-ratings {itemN: code}
@@ -285,6 +290,7 @@ function showGrader(){
   $("whoMeta").textContent=[student.w?("Week of "+student.w):"",student.m?("Mentor: "+student.m):"",student.p].filter(Boolean).join(" · ");
   var self=computeScore(selfCodes);
   $("selfNum").textContent=self.answered===self.total?self.overall.toFixed(2):"—";
+  $("notes").value=DEFAULT_NOTES;
   renderRubric();
   refresh();
 }
