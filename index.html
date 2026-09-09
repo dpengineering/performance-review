@@ -315,6 +315,9 @@ const IMG_MAXDIM=1000, IMG_QUALITY=0.7;
 function recompressDataUrl(dataUrl){
   return new Promise(function(res){
     if(!dataUrl||dataUrl.indexOf("data:image")!==0){res(dataUrl);return;}
+    // GIFs are often animated; a canvas re-encode flattens them to a single
+    // (sometimes blank) JPEG frame, so they appear not to render. Leave as-is.
+    if(dataUrl.indexOf("data:image/gif")===0){res(dataUrl);return;}
     var img=new Image();
     img.onload=function(){
       try{

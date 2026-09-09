@@ -47,6 +47,8 @@
   .desc{margin:.4rem 0 .55rem 2rem;padding:0;color:var(--muted);font-size:.8rem}
   .desc li{margin:.12rem 0}
   .rateline{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:.5rem 0 0 2rem}
+  .itemcomment{margin:.5rem 0 0 2rem}
+  .itemcomment textarea{width:100%;max-width:560px;padding:.45rem .55rem;border:1px solid var(--dev);border-radius:8px;font:inherit;font-size:.85rem;line-height:1.4;resize:vertical;min-height:44px;background:#fffbeb}
   .selfnote{font-size:.76rem;color:var(--muted)}
   .selfnote .badge{display:none;color:var(--dev);font-weight:700}
   .item.dev .selfnote .badge{display:inline}
@@ -209,7 +211,8 @@ function renderRubric(){
         descHTML(it)+
         '<div class="rateline">'+segHTML("m_"+it.n,mentorCodes[it.n]||null,it.cat)+
         '<span class="selfnote"><span class="same">Student: '+esc(selfLabel)+'</span>'+
-        '<span class="badge">Changed from “'+esc(selfLabel)+'”</span></span></div></div>';
+        '<span class="badge">Changed from “'+esc(selfLabel)+'”</span></span></div>'+
+        '<div class="itemcomment" hidden><textarea class="ic" data-n="'+it.n+'" placeholder="Why the change? (added to this item in the Canvas comment)"></textarea></div></div>';
     }).join("");
     return head+rows;
   }).join("");
@@ -218,7 +221,17 @@ function renderRubric(){
       var n=+e.target.name.slice(2);
       mentorCodes[n]=e.target.value;
       refresh();
+      // If this created a deviation, jump to its comment box so the mentor
+      // can note why straight away.
+      if(mentorCodes[n]!==selfCodes[n]){
+        var ic=$("rubric").querySelector('.ic[data-n="'+n+'"]');
+        if(ic)ic.focus();
+      }
     }
+  });
+  // Per-item comments feed the generated Canvas comment as they're typed.
+  $("rubric").addEventListener("input",function(e){
+    if(e.target&&e.target.classList.contains("ic")) $("commentOut").textContent=formatComment();
   });
 }
 
@@ -234,7 +247,11 @@ function formatComment(){
   var out="Weekly Performance Review — "+res.overall.toFixed(2)+" / 4.00\n";
   if(devs.length){
     out+="\nAdjustments from self-assessment:\n"+devs.map(function(d){
-      return "• #"+d.n+" "+d.text+": "+d.from+" → "+d.to;
+      var line="• #"+d.n+" "+d.text+": "+d.from+" → "+d.to;
+      var cEl=$("rubric").querySelector('.ic[data-n="'+d.n+'"]');
+      var cTxt=cEl?(cEl.value||"").trim():"";
+      if(cTxt)line+="\n    "+cTxt;
+      return line;
     }).join("\n")+"\n";
   }else{
     out+="\nRatings match the student's self-assessment.\n";
@@ -249,10 +266,14 @@ function refresh(){
   $("cats").textContent="Performance "+res.sub.perf+"/"+res.max.perf+
     " · Productive "+res.sub.prod+"/"+res.max.prod+
     " · Counterproductive "+res.sub.counter+"/"+res.max.counter;
-  // deviation highlight
+  // deviation highlight + reveal the per-item comment box on deviation
   ITEMS.forEach(function(it){
     var el=$("rubric").querySelector('.item[data-n="'+it.n+'"]');
-    if(el)el.classList.toggle("dev",mentorCodes[it.n]&&mentorCodes[it.n]!==selfCodes[it.n]);
+    if(!el)return;
+    var dev=mentorCodes[it.n]&&mentorCodes[it.n]!==selfCodes[it.n];
+    el.classList.toggle("dev",dev);
+    var ic=el.querySelector('.itemcomment');
+    if(ic)ic.hidden=!dev;
   });
   $("commentOut").textContent=formatComment();
 }
