@@ -529,7 +529,7 @@ function artifactSectionsHTML(codes){
 // shows a copyable *code* the mentor pastes into the tool, plus where to find
 // it. The ratings are encoded in the code; it never travels through a server.
 // TODO: set GRADER_PAGE_URL to the grading tool's page on the DPEA Google Site.
-const GRADER_PAGE_URL="https://sites.google.com/dpengineering.org/dpea-portfolios/REPLACE-WITH-GRADER-PAGE";
+const GRADER_PAGE_URL="https://sites.google.com/dpengineering.org/dpea-portfolios/generators/pr-grader";
 function b64url(bin){return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
 function encodePayload(obj){return b64url(unescape(encodeURIComponent(JSON.stringify(obj))));}
 function gradeCode(d){
