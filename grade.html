@@ -136,7 +136,29 @@ const ITEMS=[
   {n:11,cat:"counter",text:"Wanders around the facility and/or distracts others",desc:[]},
   {n:12,cat:"counter",text:"Engages in unnecessary web/social media or phone/texting",desc:["Adheres to district/campus guidelines"]}
 ];
-const POINTS={prod:{a:3,m:2,s:1,n:0},counter:{a:0,m:1,s:2,n:3},perf:{a:3,m:2,s:1,n:0}};
+// ===== Per-item scoring weights — EDIT HERE ==========================
+// Each rubric item is scored by its code (a/m/s/n); higher = better, negatives
+// penalize. The weekly score sums the 12 item weights and normalizes so a
+// best-possible week = 4.00, then floors at 0 (students never get a negative
+// grade). To retune an item, edit its row — the 0.00–4.00 ceiling re-derives
+// itself from these numbers, so nothing else needs to change.
+// Items 11 & 12 are counterproductive, so their BEST value is "n" (never).
+// ⚠ Keep this block IDENTICAL in index.html (the student tool) so the student's
+//   self-score and the mentor's score use the same model.
+const WEIGHTS={
+  1:{a:8,m:2,s:-8,n:-12},    // Appropriate progress toward project completion   [critical]
+  2:{a:8,m:4,s:2,n:0},       // Professional communication
+  3:{a:4,m:2,s:-8,n:-16},    // Generates portfolio content weekly               [critical]
+  4:{a:8,m:2,s:-8,n:-12},    // Maintains focus and productivity                 [critical]
+  5:{a:8,m:4,s:1,n:0},       // Strives to produce high-quality work
+  6:{a:4,m:3,s:2,n:1},       // Is resourceful and proactive
+  7:{a:4,m:3,s:2,n:1},       // Is aware of needs beyond self
+  8:{a:4,m:1,s:-8,n:-16},    // Demonstrates integrity and honesty               [critical]
+  9:{a:8,m:4,s:1,n:0},       // Professional / clean work area
+  10:{a:8,m:4,s:1,n:0},      // Successfully executes weekly maintenance task
+  11:{a:0,m:0,s:2,n:4},      // Wanders / distracts others          [counterproductive: n best]
+  12:{a:-12,m:-8,s:-4,n:8}   // Unnecessary web / social / phone    [counterproductive: n best]
+};
 const SECTIONS=[
   {at:1,cat:"perf",title:"Performance Review",key:"a = always · m = mostly · s = somewhat · n = not at all"},
   {at:4,cat:"prod",title:"Productive Behavior",key:"a = always · m = mostly · s = sometimes · n = never"},
@@ -148,14 +170,14 @@ function labelSet(cat){return cat==="perf"?CODE_LABELS.perf:CODE_LABELS.std;}
 function computeScore(codes){
   var raw=0,sub={prod:0,counter:0,perf:0},max={prod:0,counter:0,perf:0},answered=0;
   ITEMS.forEach(function(it){
-    var pts=POINTS[it.cat];
-    max[it.cat]+=Math.max(pts.a,pts.m,pts.s,pts.n);
+    var w=WEIGHTS[it.n];
+    max[it.cat]+=Math.max(w.a,w.m,w.s,w.n);   // best attainable for this item
     var c=codes[it.n];
-    if(c){answered++;raw+=pts[c];sub[it.cat]+=pts[c];}
+    if(c){answered++;raw+=w[c];sub[it.cat]+=w[c];}
   });
-  var maxRaw=max.prod+max.counter+max.perf;   // 36
+  var maxRaw=max.prod+max.counter+max.perf;   // best-possible total → auto-derives the scale
   return {raw:raw,answered:answered,total:ITEMS.length,sub:sub,max:max,maxRaw:maxRaw,
-    overall:raw/(maxRaw/4),pct:raw/maxRaw*100};
+    overall:Math.max(raw/(maxRaw/4),0),pct:Math.max(raw/maxRaw*100,0)};   // floored at 0
 }
 function segHTML(name,selected,cat){
   var L=labelSet(cat);

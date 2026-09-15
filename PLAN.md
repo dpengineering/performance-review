@@ -20,7 +20,7 @@ philosophy, same design-system conventions.
 | **Canvas** | Manual submission (no Canvas API / LTI). Student uploads the HTML file to a Canvas assignment; the mentor reads it in SpeedGrader. |
 | **Grading UX** | The mentor grades with **Canvas's native rubric** (score + comments) — not inside the submitted file. The submission is a **static, read-only page** whose only job is to be *readable* in SpeedGrader's preview. See [Why not grade in the file](#why-not-grade-inside-the-file). |
 | **Teacher output** | The official score and comments live in Canvas, entered via the rubric. Canvas is the system of record. |
-| **Scoring** | Redesigned — transparent, equal-weight, no negative points, no hard floor. Normalizes to a 0.00–4.00 scale for continuity with the old sheet. Drives the **student self-score** only. |
+| **Scoring** | **Per-item weights** ported from the old sheet's F17 (differential weighting kept, cruft cleaned, critical "mostly" cliffs softened). Σ weights normalized so a best week = 4.00, **floored at 0**. Editable `WEIGHTS` block, mirrored in `index.html` + `grade.html`. See [Scoring model](#scoring-model-per-item-weights). |
 | **Student self-score** | Recorded and shown as a **mirror** (drives reflection). Displayed in the authoring app and baked read-only into the submission as context for the mentor. Never the official grade. |
 
 ### Why not grade inside the file
@@ -85,34 +85,51 @@ content it assesses), then Productive, then Counterproductive.
 
 ---
 
-## Scoring model (redesigned)
+## Scoring model (per-item weights)
 
-The old sheet used 12 bespoke nested-IF weightings, heavy negative penalties, and a
-floor-at-0 that let a couple of bad marks collapse an otherwise good week to 0.00.
-It also carried a latent inconsistency (one item's "sometimes" value differed between
-the two copies of the formula). The redesign is flat and transparent.
+The old sheet (cell F17) used 12 bespoke nested-IF weightings, negative penalties, and a
+floor-at-0. An early redesign flattened this to equal weights, but the team decided the
+**differential weighting was intentional** (some items matter more), so the current model
+ports those weights back — cleaned up — rather than staying flat.
 
-**Per-response points**
+**Per-item weights** (`a/m/s/n`; for items 11–12, "never" is best):
 
-| Category | Items | a | m | s | n |
-|----------|-------|---|---|---|---|
-| Performance | 1–3 | 3 | 2 | 1 | 0 |
-| Productive | 4–10 | 3 | 2 | 1 | 0 |
-| Counterproductive *(reversed)* | 11–12 | 0 | 1 | 2 | 3 |
+| # | Item | a | m | s | n |
+|---|------|----|----|----|----|
+| 1 | Appropriate progress | 8 | 2 | −8 | −12 |
+| 2 | Professional communication | 8 | 4 | 2 | 0 |
+| 3 | Portfolio content | 4 | 2 | −8 | −16 |
+| 4 | Maintains focus | 8 | 2 | −8 | −12 |
+| 5 | High-quality work | 8 | 4 | 1 | 0 |
+| 6 | Resourceful / proactive | 4 | 3 | 2 | 1 |
+| 7 | Needs beyond self | 4 | 3 | 2 | 1 |
+| 8 | Integrity & honesty | 4 | 1 | −8 | −16 |
+| 9 | Clean work area | 8 | 4 | 1 | 0 |
+| 10 | Maintenance task | 8 | 4 | 1 | 0 |
+| 11 | Wanders / distracts | 0 | 0 | 2 | 4 |
+| 12 | Web / social / phone | −12 | −8 | −4 | 8 |
+
+**Cleanup from the original F17 formula:** fixed item 6's "sometimes" (it was `3` in the
+formula's gate copy but `2` in the value copy — a duplicated-formula typo → use `2`); broke
+item 7's "mostly = sometimes" tie (→ 4/3/2/1); and softened the three "mostly = −4" cliffs
+(items 1/4/8) to small positives so "mostly meeting expectations" isn't punished. Critical
+items still carry heavy negatives on "sometimes/never."
 
 **Aggregation**
 
-- Raw sum ranges **0–36** (12 items × max 3). No negative values → no punitive floor needed.
-- **Overall = raw ÷ 9** → a clean **0.00–4.00** scale (36 ÷ 9 = 4.00 for a perfect week).
-- Also display as **percent** (`raw ÷ 36 × 100`).
-- **Category subtotals** shown for actionable feedback: Performance `/9`, Productive `/21`, Counterproductive `/6`.
+- **Raw** = Σ of the 12 item weights.
+- **Overall = max( raw ÷ (maxRaw/4), 0 )** → a **0.00–4.00** scale, **floored at 0** (per-item
+  negatives are allowed, but a week never scores below 0).
+- `maxRaw` = Σ of each item's best value = **76**, so the divisor is 76 ÷ 4 = **19** and a
+  best-possible week = 4.00. The divisor **auto-derives** from the weights, so retuning any
+  weight keeps the ceiling at 4.00 with no other change.
+- Reference curve: best **4.00** · "mostly" everywhere **1.11** · "sometimes" everywhere **0.00**.
+- **Category subtotals** (weighted): Performance `/20`, Productive `/44`, Counterproductive `/12`.
 
-This model computes the **student self-score** only. The mentor's official grade
-comes from Canvas's rubric; the self-score is displayed alongside as a mirror
-(the gap between the two is the reflection signal).
-
-*Future knob (not in v1):* optionally emphasize critical items (integrity #8,
-progress #1, portfolio #3) with a transparent ×2 weight.
+**Where the weights live:** an editable `const WEIGHTS = {…}` block, **duplicated in
+`index.html` and `grade.html`** (separate embeds — keep the two identical). This model drives
+the student **self-score**, and — prefilled into the grading tool from the submission's code —
+the mentor's starting score.
 
 ---
 
