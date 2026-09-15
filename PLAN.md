@@ -4,8 +4,8 @@ A browser-based tool that streamlines the weekly performance-review submission
 process for 12th-grade engineering seniors. It replaces the multi-tab
 Google Sheet ([source rubric](https://docs.google.com/spreadsheets/d/1erlqm3UoqPVIc0n5YhPv-zpNiUygeZmOLR8fecxYfLY))
 with a self-contained web artifact that students submit through Canvas. Mentors
-read that submission in SpeedGrader and enter the official grade with **Canvas's
-built-in rubric**.
+read that submission in SpeedGrader and grade it with a companion **grading tool**
+(`grade.html`), pasting the resulting score and comment back into Canvas.
 
 Sibling project: [`portfolio-generator`](../portfolio-generator) — same zero-backend
 philosophy, same design-system conventions.
@@ -16,10 +16,10 @@ philosophy, same design-system conventions.
 
 | Area | Decision |
 |------|----------|
-| **Architecture** | Pure client-side. Self-contained HTML artifact. No server, no database, no accounts. Hosted on GitHub Pages alongside the portfolio tools. |
-| **Canvas** | Manual submission (no Canvas API / LTI). Student uploads the HTML file to a Canvas assignment; the mentor reads it in SpeedGrader. |
-| **Grading UX** | The mentor grades with **Canvas's native rubric** (score + comments) — not inside the submitted file. The submission is a **static, read-only page** whose only job is to be *readable* in SpeedGrader's preview. See [Why not grade in the file](#why-not-grade-inside-the-file). |
-| **Teacher output** | The official score and comments live in Canvas, entered via the rubric. Canvas is the system of record. |
+| **Architecture** | Pure client-side. Self-contained HTML, no server/DB/accounts. **Deployed as embedded pages on the DPEA Google Site** — GitHub is blocked on school Wi-Fi, so each app is pasted into a Google Sites HTML embed and the GitHub repo is source-of-truth / backup only. |
+| **Canvas** | Manual submission (no Canvas API / LTI). Student uploads the HTML file to a Canvas assignment; the mentor reads it in SpeedGrader. Canvas is the system of record for the grade. |
+| **Grading UX** | The submission is a **static, read-only page** (readable in SpeedGrader; see [Why not grade in the file](#why-not-grade-inside-the-file)). Its footer carries a copyable **grading code** plus a link to the grading tool. The mentor opens the tool (`grade.html`, a second Google Sites embed), pastes the code — it prefills the student's self-ratings — adjusts by exception, and copies the generated score + comment into Canvas. |
+| **Teacher output** | The tool generates a **score** (into the SpeedGrader points box) and a formatted **comment** (into the comment field). No Canvas rubric. |
 | **Scoring** | **Per-item weights** ported from the old sheet's F17 (differential weighting kept, cruft cleaned, critical "mostly" cliffs softened). Σ weights normalized so a best week = 4.00, **floored at 0**. Editable `WEIGHTS` block, mirrored in `index.html` + `grade.html`. See [Scoring model](#scoring-model-per-item-weights). |
 | **Student self-score** | Recorded and shown as a **mirror** (drives reflection). Displayed in the authoring app and baked read-only into the submission as context for the mentor. Never the official grade. |
 
@@ -30,9 +30,12 @@ preview* — click the rubric in the file, score computes live. Testing on
 2026-08-13 suggested this worked, but by 2026-08-18 Canvas was rendering HTML
 submission previews in a **sandboxed iframe without `allow-scripts`**: no
 JavaScript runs in the pane at all (neither `<script>` nor inline `on*` handlers).
-Static HTML/CSS still renders fine. So the submission is now a static page the
-mentor *reads*, and grading moves to Canvas's own rubric — which does score
-computation and comments natively anyway.
+Static HTML/CSS still renders fine. So the submission is a static page the mentor
+*reads*, and the interactive grading moved out of the sandbox into a separate tool
+(`grade.html`) — see [Teacher / mentor flow](#teacher--mentor-flow-the-grading-tool).
+(We briefly planned to grade with Canvas's native rubric instead, but 12 criteria ×
+~100 students/week was too much clicking, so the tool prefills from the student's
+self-assessment and the mentor grades by exception.)
 
 ---
 
@@ -42,8 +45,8 @@ computation and comments natively anyway.
 - **~8 mentors/teachers** split the grading; Canvas SpeedGrader routes each mentor
   to their own section's submissions.
 - Canvas holds identity, per-student/per-week storage, rosters, grader
-  assignment, **and now the rubric-based grade**. We build only the
-  **student authoring → static submission** layer.
+  assignment, **and the final grade** (pasted in by the mentor). We build the
+  **student authoring app, the static submission, and the mentor grading tool**.
 
 ---
 
@@ -139,7 +142,7 @@ Two pieces, both plain HTML/CSS/JS, no build step (fork the `portfolio-generator
 shell for design-system consistency: CSS-variable palette, system-ui font,
 form layout, checklist gating).
 
-### 1. Student authoring app (hosted on GitHub Pages)
+### 1. Student authoring app (Google Sites embed)
 - Student attaches their weekly `portfolio-generator` post, adds DELTA skills, and
   picks `a/m/s/n` for each of the 12 items, with the descriptor bullets shown
   inline as guidance, plus short reflection notes.
@@ -159,18 +162,31 @@ form layout, checklist gating).
   sandboxed preview.
 - Carries a `type="application/json"` data block so the authoring app can re-open a
   submission ("Load draft or page"). This is data only — never executed.
-- No grading controls. The mentor grades with the Canvas rubric.
+- No grading controls. Instead, the footer shows a copyable **grading code** (the
+  student's identity + 12 self-ratings, base64-encoded) and a link to the grading tool;
+  both are click-to-select (SpeedGrader's sandbox blocks link navigation).
 
 ---
 
-## Teacher / mentor flow (in SpeedGrader)
+## Teacher / mentor flow (the grading tool)
 
-1. Open the student's submission in SpeedGrader — the static page renders in the pane.
-2. Read the portfolio, DELTAs, and the student's self-ratings (highlighted, read-only)
-   as context.
-3. Enter the official score and comments using **Canvas's built-in rubric**.
+SpeedGrader can't run the submission's JS, so grading lives in a separate page
+(`grade.html`) — a second Google Sites embed the mentor keeps open next to SpeedGrader.
 
-No download, no separate grading tool — the rubric lives in Canvas.
+1. Open the student's submission in SpeedGrader — the static page renders; read the
+   portfolio, DELTAs, and self-ratings as context.
+2. **Copy the grading code** from the submission footer (one click selects it).
+3. **Paste it into the grading tool** → it prefills the mentor's ratings with the
+   student's self-assessment (mentor score starts equal to the self-score).
+4. **Adjust only where you disagree** — changed items are highlighted and each opens a
+   comment box; the 0–4 score recomputes live.
+5. **Copy** the generated comment into the SpeedGrader comment field and type the score
+   into the points box.
+
+Nothing goes through a server — the code is encoded data the mentor pastes. (At home,
+where GitHub isn't blocked, `grade.html` also accepts a `#…` fragment link so the tool
+opens pre-filled; inside the Sites embed the paste box is the path, since a cross-origin
+iframe can't read the parent page's fragment.)
 
 ---
 
@@ -178,16 +194,17 @@ No download, no separate grading tool — the rubric lives in Canvas.
 
 1. **Rubric + scoring locked** ✅ (this document).
 2. **Student authoring app** ✅ — form, live descriptors, checklist gating, self-score preview, portfolio import + re-compression, artifact export.
-3. **Static submission** ✅ — read-only self-ratings summary + self-score, no embedded grading.
-4. **Polish & deploy** — cross-link with the portfolio tools, publish to GitHub Pages, write student/mentor quick-start (incl. how to set up the Canvas rubric).
-5. *(Later, optional)* **Trends viewer** — drag-drop a student's weekly files to chart 0–4 self-scores across the year.
+3. **Static submission** ✅ — read-only self-ratings summary + self-score, grading code in the footer.
+4. **Grading tool** ✅ — `grade.html`: paste code → prefill → adjust by exception → copy-ready score + comment.
+5. **Deploy** — paste `index.html` and `grade.html` into Google Sites HTML embeds; set `GRADER_PAGE_URL`; write a student/mentor quick-start.
+6. *(Later, optional)* **Trends viewer** — drag-drop a student's weekly files to chart 0–4 scores across the year.
 
 ---
 
 ## Open / deferred
 
-- **Canvas rubric setup** — build the matching 12-criterion rubric in Canvas (or a
-  points-only rubric) so mentor scoring maps to the same 0.00–4.00 model; document it.
+- **Set `GRADER_PAGE_URL`** in `index.html` to the grading tool's Google Sites page, and
+  re-paste both embeds whenever the code changes (GitHub push ≠ live; the Sites embeds are).
+- **Weight sync** — the `WEIGHTS` block is duplicated in `index.html` + `grade.html`; keep them identical.
 - **Trends viewer** deferred to a later phase (low priority until the core loop is in use).
-- **Critical-item weighting** deferred; v1 ships equal-weight.
-- **GitHub Pages setup** when we deploy.
+- Set the Canvas assignment to **4 points** (no rubric needed).
