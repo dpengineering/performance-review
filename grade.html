@@ -60,7 +60,8 @@
   .seg span{display:inline-block;padding:.35rem .6rem;font-size:.78rem;font-weight:600;color:var(--muted);cursor:pointer;border-right:1px solid var(--border);user-select:none}
   .seg .opt:last-child span{border-right:0}
   .seg input:checked+span{background:var(--accent);color:#fff}
-  .seg input:focus-visible+span{outline:2px solid var(--accent);outline-offset:-2px}
+  .item{outline:none}
+  .item:focus-within{outline:2px solid var(--accent);outline-offset:2px}   /* shows which item takes a/m/s/n */
   /* output */
   .out{background:#fff;border:1px solid var(--border);border-radius:10px;padding:1rem;margin-top:1.5rem}
   .out h3{margin:0 0 .2rem;font-size:1rem}
@@ -101,7 +102,7 @@
     </div>
     <div class="cats" id="cats"></div>
 
-    <div class="hint">Every item starts at the student's self-rating. Change only where you disagree — changed items are highlighted, and each change is listed in the comment.</div>
+    <div class="hint">Every item starts at the student's self-rating. Change only where you disagree — changed items are highlighted, and each change is listed in the comment. <strong>Keyboard:</strong> click anywhere on an item (or Tab to it), type <kbd>a</kbd>/<kbd>m</kbd>/<kbd>s</kbd>/<kbd>n</kbd>, then <kbd>Enter</kbd> for the next item.</div>
 
     <div id="rubric"></div>
 
@@ -182,8 +183,10 @@ function computeScore(codes){
 function segHTML(name,selected,cat){
   var L=labelSet(cat);
   var order=cat==="counter"?["n","s","m","a"]:["a","m","s","n"];
+  // Radios are out of the tab order; the whole .item card is the focus target
+  // for keyboard entry (see renderRubric), so Tab steps item-to-item.
   return '<div class="seg">'+order.map(function(c){
-    return '<label class="opt"><input type="radio" name="'+name+'" value="'+c+'"'+
+    return '<label class="opt"><input type="radio" tabindex="-1" name="'+name+'" value="'+c+'"'+
       (selected===c?" checked":"")+'><span>'+L[c]+'</span></label>';
   }).join("")+'</div>';
 }
@@ -210,6 +213,7 @@ const DEFAULT_NOTES="* Please email with any questions/comments. Replying here v
 var student={};        // {n,w,m,p}
 var selfCodes={};      // student's self-ratings {itemN: code}
 var mentorCodes={};    // mentor's ratings (start = selfCodes)
+var segKeyboard=false; // true while a rating is being set via keyboard (a/m/s/n)
 
 function loadFromCode(raw){
   var code=extractCode(raw);
@@ -233,7 +237,7 @@ function renderRubric(){
     var rows=ITEMS.filter(function(it){return it.cat===sec.cat;}).map(function(it){
       var self=selfCodes[it.n];
       var selfLabel=self?labelSet(it.cat)[self]:"—";
-      return '<div class="item'+(it.cat==="counter"?" neg":"")+'" data-n="'+it.n+'"><div class="ihead">'+
+      return '<div class="item'+(it.cat==="counter"?" neg":"")+'" data-n="'+it.n+'" tabindex="0" role="group" aria-label="Rubric item '+it.n+' — type a, m, s, or n; Enter for the next item"><div class="ihead">'+
         '<span class="inum">'+it.n+'</span><span class="itext">'+esc(it.text)+'</span></div>'+
         descHTML(it)+
         '<div class="rateline">'+segHTML("m_"+it.n,mentorCodes[it.n]||null,it.cat)+
@@ -248,12 +252,34 @@ function renderRubric(){
       var n=+e.target.name.slice(2);
       mentorCodes[n]=e.target.value;
       refresh();
-      // If this created a deviation, jump to its comment box so the mentor
-      // can note why straight away.
-      if(mentorCodes[n]!==selfCodes[n]){
+      // If a mouse click created a deviation, jump to its comment box. Skipped
+      // during keyboard entry so a/m/s/n → Enter keeps flowing through the items.
+      if(!segKeyboard && mentorCodes[n]!==selfCodes[n]){
         var ic=$("rubric").querySelector('.ic[data-n="'+n+'"]');
         if(ic)ic.focus();
       }
+    }
+  });
+  // Keyboard entry: focus an item card, type a/m/s/n to choose, Enter → next item.
+  $("rubric").addEventListener("keydown",function(e){
+    if(e.target.tagName==="TEXTAREA")return;   // let the per-item comment boxes type normally
+    var item=e.target.closest?e.target.closest(".item"):null;
+    if(!item)return;
+    var k=(e.key||"").toLowerCase();
+    if(k==="a"||k==="m"||k==="s"||k==="n"){
+      var inp=item.querySelector('.seg input[value="'+k+'"]');
+      if(inp){
+        e.preventDefault();
+        segKeyboard=true;
+        inp.checked=true; inp.dispatchEvent(new Event("change",{bubbles:true}));
+        segKeyboard=false;
+      }
+    }else if(e.key==="Enter"){
+      e.preventDefault();
+      var items=[].slice.call($("rubric").querySelectorAll(".item"));
+      var i=items.indexOf(item);
+      if(i>=0&&i<items.length-1) items[i+1].focus();
+      else $("notes").focus();   // past the last item → drop into the notes box
     }
   });
   // Per-item comments feed the generated Canvas comment as they're typed.
