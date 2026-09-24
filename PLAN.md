@@ -16,9 +16,9 @@ philosophy, same design-system conventions.
 
 | Area | Decision |
 |------|----------|
-| **Architecture** | Pure client-side. Self-contained HTML, no server/DB/accounts. **Deployed as embedded pages on the DPEA Google Site** — GitHub is blocked on school Wi-Fi, so each app is pasted into a Google Sites HTML embed and the GitHub repo is source-of-truth / backup only. |
+| **Architecture** | Pure client-side. Self-contained HTML, no server/DB/accounts. **Served from GitHub Pages** (`dpengineering.github.io/performance-review/`). GitHub was briefly blocked on school Wi-Fi (we ran the apps as Google Sites embeds during that window); it's reachable again, so Pages is the live host. |
 | **Canvas** | Manual submission (no Canvas API / LTI). Student uploads the HTML file to a Canvas assignment; the mentor reads it in SpeedGrader. Canvas is the system of record for the grade. |
-| **Grading UX** | The submission is a **static, read-only page** (readable in SpeedGrader; see [Why not grade in the file](#why-not-grade-inside-the-file)). Its footer carries a copyable **grading code** plus a link to the grading tool. The mentor opens the tool (`grade.html`, a second Google Sites embed), pastes the code — it prefills the student's self-ratings — adjusts by exception, and copies the generated score + comment into Canvas. |
+| **Grading UX** | The submission is a **static, read-only page** (readable in SpeedGrader; see [Why not grade in the file](#why-not-grade-inside-the-file)). Its footer carries a single **grading link** to `grade.html` with the student's ratings in the URL fragment. The mentor copies it into a tab (SpeedGrader's sandbox blocks the click, so it's click-to-select), the tool opens **prefilled** with the self-ratings, they adjust by exception, and copy the generated score + comment into Canvas. |
 | **Teacher output** | The tool generates a **score** (into the SpeedGrader points box) and a formatted **comment** (into the comment field). No Canvas rubric. |
 | **Scoring** | **Per-item weights** ported from the old sheet's F17 (differential weighting kept, cruft cleaned, critical "mostly" cliffs softened). Σ weights normalized so a best week = 4.00, **floored at 0**. Editable `WEIGHTS` block, mirrored in `index.html` + `grade.html`. See [Scoring model](#scoring-model-per-item-weights). |
 | **Student self-score** | Recorded and shown as a **mirror** (drives reflection). Displayed in the authoring app and baked read-only into the submission as context for the mentor. Never the official grade. |
@@ -130,7 +130,7 @@ items still carry heavy negatives on "sometimes/never."
 - **Category subtotals** (weighted): Performance `/20`, Productive `/44`, Counterproductive `/12`.
 
 **Where the weights live:** an editable `const WEIGHTS = {…}` block, **duplicated in
-`index.html` and `grade.html`** (separate embeds — keep the two identical). This model drives
+`index.html` and `grade.html`** (separate pages — keep the two identical). This model drives
 the student **self-score**, and — prefilled into the grading tool from the submission's code —
 the mentor's starting score.
 
@@ -142,7 +142,7 @@ Two pieces, both plain HTML/CSS/JS, no build step (fork the `portfolio-generator
 shell for design-system consistency: CSS-variable palette, system-ui font,
 form layout, checklist gating).
 
-### 1. Student authoring app (Google Sites embed)
+### 1. Student authoring app (GitHub Pages)
 - Student attaches their weekly `portfolio-generator` post, adds DELTA skills, and
   picks `a/m/s/n` for each of the 12 items, with the descriptor bullets shown
   inline as guidance, plus short reflection notes.
@@ -162,31 +162,31 @@ form layout, checklist gating).
   sandboxed preview.
 - Carries a `type="application/json"` data block so the authoring app can re-open a
   submission ("Load draft or page"). This is data only — never executed.
-- No grading controls. Instead, the footer shows a copyable **grading code** (the
-  student's identity + 12 self-ratings, base64-encoded) and a link to the grading tool;
-  both are click-to-select (SpeedGrader's sandbox blocks link navigation).
+- No grading controls. Instead, the footer shows a single **grading link** to the tool
+  with the student's identity + 12 self-ratings encoded in the URL fragment
+  (`…/grade#d=…`). It's click-to-select (SpeedGrader's sandbox blocks link clicks);
+  pasting it into a tab opens the grader prefilled.
 
 ---
 
 ## Teacher / mentor flow (the grading tool)
 
 SpeedGrader can't run the submission's JS, so grading lives in a separate page
-(`grade.html`) — a second Google Sites embed the mentor keeps open next to SpeedGrader.
+(`grade.html`) served from GitHub Pages, which the mentor opens alongside SpeedGrader.
 
 1. Open the student's submission in SpeedGrader — the static page renders; read the
    portfolio, DELTAs, and self-ratings as context.
-2. **Copy the grading code** from the submission footer (one click selects it).
-3. **Paste it into the grading tool** → it prefills the mentor's ratings with the
-   student's self-assessment (mentor score starts equal to the self-score).
-4. **Adjust only where you disagree** — changed items are highlighted and each opens a
-   comment box; the 0–4 score recomputes live.
-5. **Copy** the generated comment into the SpeedGrader comment field and type the score
+2. **Copy the grading link** from the submission footer (one click selects it) and paste
+   it into a new tab. The tool opens **prefilled** with the student's self-ratings
+   (mentor score starts equal to the self-score).
+3. **Adjust only where you disagree** — focus an item card and type `a/m/s/n`, Enter for
+   the next (or click). Changed items are highlighted and each opens a comment box; the
+   0–4 score recomputes live.
+4. **Copy** the generated comment into the SpeedGrader comment field and type the score
    into the points box.
 
-Nothing goes through a server — the code is encoded data the mentor pastes. (At home,
-where GitHub isn't blocked, `grade.html` also accepts a `#…` fragment link so the tool
-opens pre-filled; inside the Sites embed the paste box is the path, since a cross-origin
-iframe can't read the parent page's fragment.)
+The ratings ride in the URL **fragment** (`#d=…`), so nothing goes through a server.
+`grade.html` also has a paste box that accepts the link (or a raw code) as a fallback.
 
 ---
 
@@ -196,15 +196,14 @@ iframe can't read the parent page's fragment.)
 2. **Student authoring app** ✅ — form, live descriptors, checklist gating, self-score preview, portfolio import + re-compression, artifact export.
 3. **Static submission** ✅ — read-only self-ratings summary + self-score, grading code in the footer.
 4. **Grading tool** ✅ — `grade.html`: paste code → prefill → adjust by exception → copy-ready score + comment.
-5. **Deploy** — paste `index.html` and `grade.html` into Google Sites HTML embeds; set `GRADER_PAGE_URL`; write a student/mentor quick-start.
+5. **Deploy** — push to GitHub Pages (`…/performance-review/`); write a student/mentor quick-start.
 6. *(Later, optional)* **Trends viewer** — drag-drop a student's weekly files to chart 0–4 scores across the year.
 
 ---
 
 ## Open / deferred
 
-- **Set `GRADER_PAGE_URL`** in `index.html` to the grading tool's Google Sites page, and
-  re-paste both embeds whenever the code changes (GitHub push ≠ live; the Sites embeds are).
+- **Grade URL** — the footer link's base is `GRADE_URL` in `index.html`; update it if the Pages path changes.
 - **Weight sync** — the `WEIGHTS` block is duplicated in `index.html` + `grade.html`; keep them identical.
 - **Trends viewer** deferred to a later phase (low priority until the core loop is in use).
 - Set the Canvas assignment to **4 points** (no rubric needed).
